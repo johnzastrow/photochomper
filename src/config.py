@@ -31,17 +31,17 @@ def save_config(config, config_path="photochomper_config.conf"):
         log_action(f"Error saving config: {e}")
 
 def select_config_file(config_dir: str) -> str:
-    """
-    Allow the user to select a config file if more than one exists in the directory,
-    or create a new one.
-    """
+    """Allow the user to select a config file if more than one exists in the directory."""
     configs = [f for f in os.listdir(config_dir) if f.endswith(".conf")]
     if not configs:
         console.print(f"[bold red]No config files found in {config_dir}. Running setup.[/bold red]")
         from src.tui import tui_setup
         tui_setup()
         sys.exit(0)
-    console.print(f"[bold yellow]Config files found in {config_dir}:[/bold yellow]")
+    if len(configs) == 1:
+        return os.path.join(config_dir, configs[0])
+    # Warn and offer selection
+    console.print(f"[bold yellow]Multiple config files found in {config_dir}:[/bold yellow]")
     for idx, fname in enumerate(configs, 1):
         console.print(f"  {idx}. {fname}")
     console.print(f"  {len(configs)+1}. [Create a new config file]")

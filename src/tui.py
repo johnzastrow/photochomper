@@ -1,65 +1,170 @@
+import os
+import sys
+import time
 from datetime import datetime
 from pathlib import Path
 from rich.console import Console
-import os
+from rich.progress import Progress
+from rich.table import Table
+from rich.panel import Panel
+from rich.text import Text
+from src.config import save_config, log_action
+from src.scanner import find_duplicates, HashAlgorithm, get_image_metadata
+from src.report import export_report
+from src.actions import ActionExecutor, FileAction, ActionBatch, ActionType, create_delete_actions, create_move_actions
 
 console = Console()
 
+def show_help():
+    console.print("[bold cyan]Photochomper Help[/bold cyan]")
+    console.print("Commands:")
+    console.print("  --setup        Run setup TUI")
+    console.print("  --search       Run duplicate search")
+    console.print("  --review       Interactive duplicate review with actions")
+    console.print("  --summary      Generate markdown summary from existing reports")
+    console.print("  --schedule N   Schedule search every N hours")
+    console.print("  --help         Show this help message")
+    console.print("\nExamples:")
+    console.print("  python main.py --summary                    # Auto-find report files")
+    console.print("  python main.py --summary report1.csv        # Use specific file")
+    console.print("  python main.py --summary *.csv *.json       # Use multiple files")
+    console.print("\nNote: Auto-discovery looks for files containing 'report' in the name")
+    console.print("      Setup automatically ensures compatibility by adding 'report' to filenames")
+
 def tui_setup():
-    console.print("[bold green]Photochomper Setup[/bold green]")
+    console.print("[bold green]📸 PhotoChomper Setup[/bold green]")
+    console.print("Configure duplicate detection and file management settings\n")
+    
+    # Define all defaults
     default_dirs = [str(Path.home() / "Pictures")]
     default_types = ["jpg", "jpeg", "png", "gif", "bmp", "tiff"]
     default_exclude_dirs = []
-    default_similarity = 1.0
+    default_similarity = 0.1
     default_path_pref = "shorter"
     default_filename_pref = None
+    default_algorithm = "dhash"
+    default_quality_ranking = False
+    default_max_workers = 4
+    default_move_dir = str(Path.home() / "Pictures" / "duplicates_to_review")
 
-    dirs = console.input(f"Enter directories to scan (comma separated) [{','.join(default_dirs)}]: ").strip()
-    dirs = dirs.split(",") if dirs else default_dirs
+    # Scan directories
+    console.print("[bold cyan]📁 Scan Directories[/bold cyan]")
+    dirs_default_display = ', '.join(default_dirs)
+    dirs = console.input(f"Directories to scan (comma separated)\n[dim]Default: {dirs_default_display}[/dim]\n> ").strip()
+    dirs = [d.strip() for d in dirs.split(",")] if dirs else default_dirs
 
-    types = console.input(f"Enter file types to include (comma separated, e.g. jpg,png) [{','.join(default_types)}]: ").strip()
-    types = types.split(",") if types else default_types
+    # File types
+    console.print(f"\n[bold cyan]📄 File Types[/bold cyan]")
+    types_default_display = ', '.join(default_types)
+    types = console.input(f"File types to include (comma separated)\n[dim]Default: {types_default_display}[/dim]\n> ").strip()
+    types = [t.strip() for t in types.split(",")] if types else default_types
 
-    exclude_dirs = console.input("Enter directories to exclude (comma separated) [none]: ").strip()
-    exclude_dirs = exclude_dirs.split(",") if exclude_dirs else default_exclude_dirs
+    # Exclude directories
+    console.print(f"\n[bold cyan]🚫 Exclude Directories[/bold cyan]")
+    exclude_dirs = console.input(f"Directories to exclude (comma separated)\n[dim]Default: none[/dim]\n> ").strip()
+    exclude_dirs = [e.strip() for e in exclude_dirs.split(",")] if exclude_dirs else default_exclude_dirs
 
-    similarity_input = console.input(f"Similarity threshold (1.0 = exact) [{default_similarity}]: ").strip()
-    similarity = float(similarity_input) if similarity_input else default_similarity
+    # Similarity threshold
+    console.print(f"\n[bold cyan]🎯 Detection Sensitivity[/bold cyan]")
+    similarity = console.input(f"Similarity threshold (0.0 = identical, 1.0 = completely different)\n[dim]Default: {default_similarity} (recommended for most images)[/dim]\n> ").strip()
+    similarity = float(similarity) if similarity else default_similarity
+    
+    # Hash algorithm selection (SHA256 is always calculated)
+    console.print(f"\n[bold cyan]🔍 Similarity Detection Algorithm[/bold cyan]")
+    console.print("Choose how to identify similar files (SHA256 is always calculated for exact duplicates):")
+    console.print("  [dim]dhash[/dim]  - Difference hash (good for similar images, recommended)")
+    console.print("  [dim]phash[/dim]  - Perceptual hash (good for rotated/scaled images)")
+    console.print("  [dim]ahash[/dim]  - Average hash (fastest perceptual, less accurate)")
+    console.print("  [dim]whash[/dim]  - Wavelet hash (best for edited images, slower)")
+    
+    algorithm = console.input(f"Similarity algorithm\n[dim]Default: {default_algorithm} (recommended)[/dim]\n> ").strip().lower()
+    algorithm = algorithm if algorithm in ['dhash', 'phash', 'ahash', 'whash'] else default_algorithm
+    
+    # Quality ranking option
+    console.print(f"\n[bold cyan]📊 Quality Analysis[/bold cyan]")
+    quality_default_display = "yes" if default_quality_ranking else "no"
+    quality_input = console.input(f"Enable image quality ranking?\n[dim]Default: {quality_default_display} (analyzes resolution and file size)[/dim]\n> ").strip().lower()
+    quality_ranking = quality_input in ('y', 'yes') if quality_input else default_quality_ranking
+    
+    # Threading options
+    console.print(f"\n[bold cyan]⚡ Performance Settings[/bold cyan]")
+    workers = console.input(f"Number of worker threads\n[dim]Default: {default_max_workers} (adjust based on CPU cores)[/dim]\n> ").strip()
+    max_workers = int(workers) if workers.isdigit() else default_max_workers
+    
+    # Memory optimization options
+    console.print(f"\n[bold cyan]💾 Memory Optimization[/bold cyan]")
+    console.print("For large collections (100k+ files), enable chunked processing")
+    console.print("This processes files in smaller batches to reduce memory usage")
+    
+    enable_chunking = console.input("Enable chunked processing?\n[dim]Default: auto (enabled for large collections)[/dim]\n> ").strip().lower()
+    chunk_size = None
+    if enable_chunking in ('y', 'yes'):
+        chunk_size_input = console.input("Chunk size (files per batch)\n[dim]Default: auto (calculated based on available memory)[/dim]\n> ").strip()
+        if chunk_size_input.isdigit():
+            chunk_size = int(chunk_size_input)
+    elif enable_chunking in ('n', 'no'):
+        chunk_size = 0  # Disable chunking
 
-    path_pref = console.input(f"Prefer master file with (shorter/longer) path? [{default_path_pref}]: ").strip().lower()
+    # File preferences
+    console.print(f"\n[bold cyan]📋 Master File Selection[/bold cyan]")
+    console.print("When duplicates are found, which original should be kept?")
+    
+    path_pref = console.input(f"Prefer file with (shorter/longer) path?\n[dim]Default: {default_path_pref} (shorter paths are usually main directories)[/dim]\n> ").strip().lower()
     if path_pref not in ("shorter", "longer"):
         path_pref = default_path_pref
 
-    filename_pref = console.input("Prefer master file with (shorter/longer) filename? [none]: ").strip().lower()
+    filename_pref_default_display = default_filename_pref if default_filename_pref else "none"
+    filename_pref = console.input(f"Prefer file with (shorter/longer) filename?\n[dim]Default: {filename_pref_default_display} (no filename preference)[/dim]\n> ").strip().lower()
     if filename_pref not in ("shorter", "longer"):
         filename_pref = default_filename_pref
 
-    # Always create a new config file with a unique timestamp
+    # Move directory for duplicates
+    console.print(f"\n[bold cyan]📂 Duplicate Management[/bold cyan]")
+    console.print("Directory to move duplicates when using --review 'move' option")
+    move_dir = console.input(f"Move duplicates to directory\n[dim]Default: {default_move_dir}[/dim]\n> ").strip()
+    move_dir = move_dir if move_dir else default_move_dir
+
+    # Configuration file
+    console.print(f"\n[bold cyan]💾 Configuration File[/bold cyan]")
     default_config_dir = os.getcwd()
-    config_dir = console.input(f"Directory to save config file? [{default_config_dir}]: ").strip()
+    config_dir = console.input(f"Directory to save config file\n[dim]Default: {default_config_dir}[/dim]\n> ").strip()
     if not config_dir:
         config_dir = default_config_dir
 
     config_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     default_config_base = "photochomper_config"
-    config_base = console.input(f"Config file base name? [{default_config_base}]: ").strip()
+    config_base = console.input(f"Config file base name\n[dim]Default: {default_config_base} (timestamp will be added)[/dim]\n> ").strip()
     if not config_base:
         config_base = default_config_base
     # Always append date/time to config file name and use .conf extension
     config_name = f"{config_base}_{config_timestamp}.conf"
     config_path = os.path.join(config_dir, config_name)
 
-    # Ask for output file location
+    # Output files
+    console.print(f"\n[bold cyan]📄 Report Files[/bold cyan]")
     default_output_dir = os.getcwd()
-    output_dir = console.input(f"Directory to save output files? [{default_output_dir}]: ").strip()
+    output_dir = console.input(f"Directory to save report files\n[dim]Default: {default_output_dir}[/dim]\n> ").strip()
     if not output_dir:
         output_dir = default_output_dir
 
     default_output_base = "duplicates_report"
-    output_base = console.input(f"Output file base name? [{default_output_base}]: ").strip()
+    console.print("Note: The word 'report' will be automatically included in filenames")
+    console.print("This ensures compatibility with the --summary auto-discovery feature")
+    
+    output_base = console.input(f"Report file base name\n[dim]Default: {default_output_base}[/dim]\n> ").strip()
     if not output_base:
         output_base = default_output_base
-    include_dt = console.input("Include date and time in output file name? (y/n) [y]: ").strip().lower()
+    
+    # Ensure "report" is always in the filename for auto-discovery compatibility
+    if "report" not in output_base.lower():
+        if output_base.endswith("_"):
+            output_base += "report"
+        else:
+            output_base += "_report"
+        console.print(f"[yellow]→ Filename updated to '{output_base}' (added 'report' for --summary compatibility)[/yellow]")
+    
+    include_dt_default = "yes"
+    include_dt = console.input(f"Include date and time in report filenames?\n[dim]Default: {include_dt_default} (recommended for multiple scans)[/dim]\n> ").strip().lower()
     if include_dt in ("", "y", "yes"):
         output_base += f"_{config_timestamp}"
     output_base = os.path.join(output_dir, output_base)
@@ -69,19 +174,23 @@ def tui_setup():
         "types": [t.strip() for t in types if t.strip()],
         "exclude_dirs": [e.strip() for e in exclude_dirs if e.strip()],
         "similarity_threshold": similarity,
+        "hash_algorithm": algorithm,
+        "quality_ranking": quality_ranking,
+        "max_workers": max_workers,
+        "chunk_size": chunk_size,
         "path_preference": path_pref,
         "filename_preference": filename_pref,
+        "duplicate_move_dir": move_dir,
         "config_file": config_path,
         "output_base": output_base
     }
-    # Save config function should be imported from your config module
-    from src.config import save_config
     save_config(config, config_path)
     console.print(f"[bold green]Configuration saved to {config_path}.[/bold green]")
 
-    # Only ask for summary file name, not format
+    # Summary file
+    console.print(f"\n[bold cyan]📋 Summary File[/bold cyan]")
     default_summary_file = os.path.join(output_dir, "duplicates_summary.md")
-    summary_file = console.input(f"Summary output file name? [{default_summary_file}]: ").strip()
+    summary_file = console.input(f"Summary markdown file name\n[dim]Default: {default_summary_file}[/dim]\n> ").strip()
     if not summary_file:
         summary_file = default_summary_file
     # Always append date/time if requested, even for custom summary file names
@@ -94,3 +203,457 @@ def tui_setup():
         "summary_file": summary_file
     })
     save_config(config, config_path)
+    
+    # Final confirmation
+    console.print(f"\n[bold green]✅ Configuration Complete![/bold green]")
+    console.print(f"📁 Config saved to: [cyan]{config_path}[/cyan]")
+    console.print(f"📂 Duplicate move directory: [cyan]{move_dir}[/cyan]")
+    console.print(f"📄 Reports will be saved to: [cyan]{output_dir}[/cyan]")
+    console.print(f"\n[dim]Next steps:[/dim]")
+    console.print(f"[dim]• Run 'python main.py --search' to find duplicates[/dim]")
+    console.print(f"[dim]• Run 'python main.py --review' for interactive management[/dim]")
+    console.print(f"[dim]• Run 'python main.py --summary' to generate markdown reports[/dim]")
+
+def run_search(config: dict, config_path: str = None):
+    console.print("[bold blue]Searching for duplicates...[/bold blue]")
+    start_time = time.time()
+    with Progress() as progress:
+        task = progress.add_task("Scanning...", total=100)
+        # Convert algorithm string to enum
+        algorithm_str = config.get("hash_algorithm", "dhash")
+        try:
+            algorithm = HashAlgorithm(algorithm_str)
+        except ValueError:
+            algorithm = HashAlgorithm.DHASH
+            log_action(f"Unknown algorithm '{algorithm_str}', using dhash")
+        
+        dupes = find_duplicates(
+            config.get("dirs", []),
+            config.get("types", []),
+            config.get("exclude_dirs", []),
+            config.get("similarity_threshold", 0.1),
+            algorithm,
+            config.get("max_workers", 4),
+            config.get("chunk_size")
+        )
+        progress.update(task, completed=100)
+    exec_time = time.time() - start_time
+    console.print(f"[bold yellow]{len(dupes)} duplicate groups found.[/bold yellow]")
+    export_report(dupes, formats=["csv", "json"], config_path=config.get("config_file", config_path), exec_time=exec_time)
+    console.print("[bold green]Reports exported to duplicates_report.csv and duplicates_report.json[/bold green]")
+    log_action(
+        f"Search completed: {len(dupes)} groups found | Config: {config.get('config_file', config_path) or 'default'} | Execution time: {exec_time:.2f}s"
+    )
+    # Print summary of total duplicate files found
+    total_files = sum(len(g) for g in dupes)
+    console.print(f"[bold magenta]Total duplicate files: {total_files}[/bold magenta]")
+
+def schedule_search(interval_hours: int, config: dict):
+    console.print(f"[bold blue]Scheduled search every {interval_hours} hours.[/bold blue]")
+    while True:
+        run_search(config)
+        time.sleep(interval_hours * 3600)
+
+def display_duplicate_group(group: list, group_id: int) -> None:
+    """Display a single group of duplicate files with metadata."""
+    console.print(f"\n[bold cyan]📁 Duplicate Group {group_id + 1}[/bold cyan]")
+    console.print(f"[dim]Found {len(group)} identical/similar files[/dim]")
+    
+    table = Table(show_header=True, header_style="bold magenta", box=None)
+    table.add_column("Status", style="bold", width=8)
+    table.add_column("File", style="cyan", no_wrap=False)
+    table.add_column("Size", justify="right", width=10)
+    table.add_column("Created", justify="center", width=16)
+    table.add_column("Resolution", justify="center", width=12)
+    table.add_column("Quality", justify="right", width=10)
+    
+    for i, file_path in enumerate(group):
+        try:
+            file_path_obj = Path(file_path)
+            if not file_path_obj.exists():
+                table.add_row(
+                    "[red]❌ MISSING[/red]",
+                    f"[red]{file_path}[/red]", 
+                    "[red]Missing[/red]", 
+                    "[red]N/A[/red]", 
+                    "[red]N/A[/red]", 
+                    "[red]N/A[/red]"
+                )
+                continue
+                
+            # Get file stats
+            stat = file_path_obj.stat()
+            size_kb = stat.st_size / 1024
+            created = datetime.fromtimestamp(stat.st_ctime).strftime("%Y-%m-%d %H:%M")
+            
+            # Get image metadata if possible
+            metadata = get_image_metadata(file_path)
+            resolution = "N/A"
+            quality_score = "N/A"
+            
+            if metadata and 'width' in metadata and 'height' in metadata:
+                resolution = f"{metadata['width']}x{metadata['height']}"
+                # Simple quality score based on resolution and file size
+                if metadata['width'] and metadata['height']:
+                    pixels = metadata['width'] * metadata['height']
+                    quality_score = f"{(pixels * stat.st_size) / 1000000:.1f}"
+            
+            # Determine status and coloring
+            if i == 0:
+                status = "[bold green]👑 MASTER[/bold green]"
+                file_display = f"[bold green]{file_path}[/bold green]"
+                size_display = f"[green]{size_kb:.0f} KB[/green]"
+                created_display = f"[green]{created}[/green]"
+                resolution_display = f"[green]{resolution}[/green]"
+                quality_display = f"[green]{quality_score}[/green]"
+            else:
+                status = f"[dim]#{i} DUPLICATE[/dim]"
+                file_display = file_path
+                size_display = f"{size_kb:.0f} KB"
+                created_display = created
+                resolution_display = resolution
+                quality_display = quality_score
+            
+            table.add_row(
+                status,
+                file_display,
+                size_display,
+                created_display,
+                resolution_display,
+                quality_display
+            )
+            
+        except Exception as e:
+            table.add_row(
+                "[red]❌ ERROR[/red]",
+                f"[red]{file_path}[/red]", 
+                "[red]Error[/red]", 
+                "[red]N/A[/red]", 
+                "[red]N/A[/red]", 
+                "[red]N/A[/red]"
+            )
+    
+    console.print(table)
+    
+    # Add explanatory footer for the group
+    console.print(f"\n[dim]📋 Group Summary:[/dim]")
+    console.print(f"[dim]• Master file (👑) will be kept by default[/dim]")
+    console.print(f"[dim]• {len(group) - 1} duplicate(s) available for action[/dim]")
+    console.print(f"[dim]• Choose 'd' to delete duplicates, 'm' to move them, or 'k' to select different master[/dim]")
+
+def interactive_duplicate_review(duplicate_groups: list, config: dict = None) -> tuple:
+    """Interactive review of duplicate groups with action selection."""
+    console.print("\n[bold yellow]📋 Interactive Duplicate Review[/bold yellow]")
+    console.print("Review each group of duplicates and choose actions.\n")
+    
+    # Show color coding and action explanations
+    console.print("[bold cyan]🎨 Display Guide:[/bold cyan]")
+    console.print("  • [bold green]Green text[/bold green] = Master file (recommended to keep)")
+    console.print("  • [white]White text[/white] = Duplicate files (candidates for action)")
+    console.print("  • [red]Red text[/red] = Missing or error files")
+    console.print("  • Quality Score = Resolution × File Size (higher = better quality)")
+    
+    console.print("\n[bold cyan]⚡ Available Actions:[/bold cyan]")
+    console.print("  • [bold](k)eep[/bold] - Choose specific file to keep, delete others")
+    console.print("  • [bold](d)elete[/bold] - Delete all duplicates, keep master (green) file")
+    console.print("  • [bold](m)ove[/bold] - Move duplicates to folder, keep master file")
+    console.print("  • [bold](s)kip[/bold] - Skip this group, make no changes")
+    console.print("  • [bold](a)uto[/bold] - Enable automatic processing with chosen strategy")
+    console.print("  • [bold](q)uit[/bold] - Exit review (no changes made)")
+    
+    console.print("\n[dim]💡 Tip: Master files (green) are usually the best choice to keep based on path length, file size, and quality analysis from your configuration.[/dim]\n")
+    
+    selected_actions = []
+    current_group = 0
+    auto_mode = False
+    auto_strategy = "first"
+    
+    while current_group < len(duplicate_groups):
+        group = duplicate_groups[current_group]
+        
+        if auto_mode:
+            # Auto process with selected strategy
+            delete_actions = create_delete_actions([group], auto_strategy)
+            selected_actions.extend(delete_actions)
+            current_group += 1
+            continue
+        
+        # Display current group
+        display_duplicate_group(group, current_group)
+        
+        # Show navigation info and action prompt
+        console.print(f"\n[bold]📊 Progress: Group {current_group + 1} of {len(duplicate_groups)}[/bold]")
+        console.print("[cyan]What would you like to do with this group?[/cyan]")
+        
+        while True:
+            action = console.input("\n[bold]Choose action [k/d/m/s/q/a]: [/bold]").strip().lower()
+            
+            if action == 'q':
+                console.print("[yellow]Review cancelled by user.[/yellow]")
+                return [], False
+                
+            elif action == 's':
+                # Skip this group
+                console.print(f"[dim]⏭️  Skipping group {current_group + 1} - no changes will be made[/dim]")
+                break
+                
+            elif action == 'a':
+                # Enable auto mode
+                console.print(f"[yellow]🤖 AUTO Mode - Automatic Processing:[/yellow]")
+                console.print("Choose a strategy to automatically process all remaining groups:")
+                console.print("  [bold]first[/bold]    - Keep first file (current master 👑), delete others")
+                console.print("  [bold]last[/bold]     - Keep last file, delete others")
+                console.print("  [bold]largest[/bold]  - Keep largest file by size, delete others")
+                console.print("  [bold]smallest[/bold] - Keep smallest file by size, delete others")
+                
+                remaining_groups = len(duplicate_groups) - current_group
+                console.print(f"\n[dim]This will automatically process {remaining_groups} remaining group(s)[/dim]")
+                
+                strategy = console.input(f"\n[bold]Auto strategy [first/last/largest/smallest]: [/bold]").strip().lower()
+                if strategy in ['first', 'last', 'largest', 'smallest']:
+                    confirm = console.input(f"[bold]Enable auto mode with '{strategy}' strategy? (y/n): [/bold]").strip().lower()
+                    if confirm in ('y', 'yes'):
+                        auto_mode = True
+                        auto_strategy = strategy
+                        console.print(f"[green]🤖 Auto mode enabled: '{strategy}' strategy for {remaining_groups} groups[/green]")
+                        break
+                    else:
+                        console.print("[dim]Auto mode cancelled[/dim]")
+                        continue
+                else:
+                    console.print("[red]Invalid strategy. Choose from: first, last, largest, smallest[/red]")
+                    continue
+                    
+            elif action == 'k':
+                # Keep specific file - show selection
+                console.print(f"[yellow]📋 KEEP Action - Choose Master File:[/yellow]")
+                console.print("Select which file to keep (others will be deleted):")
+                
+                for i, file_path in enumerate(group):
+                    file_path_obj = Path(file_path)
+                    if file_path_obj.exists():
+                        stat = file_path_obj.stat()
+                        size_mb = stat.st_size / (1024 * 1024)
+                        status_text = "👑 Current Master" if i == 0 else "Duplicate"
+                        console.print(f"  [bold]{i + 1}.[/bold] [{status_text}] {Path(file_path).name} ({size_mb:.1f} MB)")
+                    else:
+                        console.print(f"  [bold]{i + 1}.[/bold] [red]❌ Missing[/red] {Path(file_path).name}")
+                
+                try:
+                    keep_idx = int(console.input(f"\n[bold]Keep file (1-{len(group)}): [/bold]").strip()) - 1
+                    if 0 <= keep_idx < len(group):
+                        # Show what will happen
+                        keep_file = group[keep_idx]
+                        files_to_delete = [f for i, f in enumerate(group) if i != keep_idx]
+                        
+                        console.print(f"[green]✅ KEEP: {Path(keep_file).name}[/green]")
+                        console.print(f"[red]🗑️  DELETE: {len(files_to_delete)} other file(s)[/red]")
+                        for i, file_path in enumerate(files_to_delete, 1):
+                            console.print(f"[red]   #{i}: {Path(file_path).name}[/red]")
+                        
+                        confirm = console.input(f"\n[bold]Confirm this selection? (y/n): [/bold]").strip().lower()
+                        if confirm in ('y', 'yes'):
+                            # Create delete actions for all files except the selected one
+                            for file_path in files_to_delete:
+                                action_obj = FileAction(
+                                    action_id=f"manual_delete_{current_group}_{len(selected_actions)}",
+                                    action_type=ActionType.DELETE,
+                                    source_path=file_path,
+                                    metadata={"group_id": current_group, "manual_review": True, "kept_file": keep_file}
+                                )
+                                selected_actions.append(action_obj)
+                            console.print(f"[green]✅ {len(files_to_delete)} files queued for deletion[/green]")
+                            break
+                        else:
+                            console.print("[dim]Keep action cancelled[/dim]")
+                            continue
+                    else:
+                        console.print("[red]Invalid selection. Please choose a number from the list.[/red]")
+                        continue
+                except ValueError:
+                    console.print("[red]Please enter a valid number.[/red]")
+                    continue
+                    
+            elif action == 'd':
+                # Delete all but first
+                console.print(f"[yellow]📋 DELETE Action Preview:[/yellow]")
+                console.print(f"[green]✅ KEEP: Master file (👑)[/green]")
+                console.print(f"[red]🗑️  DELETE: {len(group) - 1} duplicate file(s)[/red]")
+                for i, file_path in enumerate(group[1:], 1):
+                    console.print(f"[red]   #{i}: {Path(file_path).name}[/red]")
+                
+                confirm = console.input(f"\n[bold]Delete {len(group) - 1} duplicate(s)? (y/n): [/bold]").strip().lower()
+                if confirm in ('y', 'yes'):
+                    delete_actions = create_delete_actions([group], "first")
+                    selected_actions.extend(delete_actions)
+                    console.print(f"[green]✅ {len(group) - 1} files queued for deletion[/green]")
+                    break
+                else:
+                    console.print("[dim]Delete action cancelled[/dim]")
+                    continue
+                
+            elif action == 'm':
+                # Move duplicates to a directory
+                console.print(f"[yellow]📋 MOVE Action Preview:[/yellow]")
+                console.print(f"[green]✅ KEEP: Master file (👑) in original location[/green]")
+                console.print(f"[blue]📦 MOVE: {len(group) - 1} duplicate file(s) to review folder[/blue]")
+                
+                # Use configured move directory as default
+                config_move_dir = config.get("duplicate_move_dir", "") if config else ""
+                default_prompt = f" [{config_move_dir}]" if config_move_dir else ""
+                move_dir = console.input(f"Directory to move duplicates to{default_prompt}: ").strip()
+                
+                # Use configured directory if no input provided
+                if not move_dir and config_move_dir:
+                    move_dir = config_move_dir
+                    console.print(f"[dim]Using configured directory: {move_dir}[/dim]")
+                
+                if move_dir:
+                    try:
+                        # Show what will be moved
+                        console.print(f"[blue]📂 Destination: {move_dir}[/blue]")
+                        for i, file_path in enumerate(group[1:], 1):
+                            console.print(f"[blue]   #{i}: {Path(file_path).name}[/blue]")
+                        
+                        confirm = console.input(f"\n[bold]Move {len(group) - 1} duplicate(s) to {Path(move_dir).name}? (y/n): [/bold]").strip().lower()
+                        if confirm in ('y', 'yes'):
+                            move_actions = create_move_actions([group], move_dir, "first")
+                            selected_actions.extend(move_actions)
+                            console.print(f"[green]✅ {len(group) - 1} files queued for moving[/green]")
+                            break
+                        else:
+                            console.print("[dim]Move action cancelled[/dim]")
+                            continue
+                    except Exception as e:
+                        console.print(f"[red]Error creating move actions: {e}[/red]")
+                        continue
+                else:
+                    console.print("[red]Please specify a directory.[/red]")
+                    continue
+                    
+            else:
+                console.print(f"[red]❌ Invalid command '{action}'. Available options:[/red]")
+                console.print("[dim]k=keep specific, d=delete duplicates, m=move duplicates, s=skip, a=auto mode, q=quit[/dim]")
+                continue
+        
+        current_group += 1
+    
+    console.print(f"\n[bold green]Review completed![/bold green]")
+    console.print(f"Total actions selected: {len(selected_actions)}")
+    
+    return selected_actions, True
+
+def execute_selected_actions(actions: list) -> bool:
+    """Execute the selected actions with user confirmation."""
+    if not actions:
+        console.print("[yellow]No actions to execute.[/yellow]")
+        return True
+    
+    # Show summary of actions
+    console.print("\n[bold cyan]Action Summary:[/bold cyan]")
+    action_counts = {}
+    for action in actions:
+        action_type = action.action_type.value
+        action_counts[action_type] = action_counts.get(action_type, 0) + 1
+    
+    for action_type, count in action_counts.items():
+        console.print(f"  {action_type.capitalize()}: {count} files")
+    
+    # Confirm execution
+    confirm_prompt = f"\nExecute {len(actions)} actions? (y/n): "
+    confirm = console.input(confirm_prompt).strip().lower()
+    
+    if confirm not in ('y', 'yes'):
+        console.print("[yellow]Action execution cancelled.[/yellow]")
+        return False
+    
+    # Execute actions
+    console.print("\n[bold blue]Executing actions...[/bold blue]")
+    
+    executor = ActionExecutor()
+    batch = ActionBatch(
+        batch_id=f"interactive_review_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+        actions=actions,
+        backup_dir="",
+        created_at=datetime.now().isoformat()
+    )
+    
+    def progress_callback(current, total, percent, action):
+        console.print(f"  Progress: {current}/{total} ({percent:.1f}%) - {action.action_type.value} {Path(action.source_path).name}")
+    
+    try:
+        result_batch = executor.execute_batch(batch, progress_callback)
+        
+        console.print(f"\n[bold green]Execution completed![/bold green]")
+        console.print(f"✅ Successful: {result_batch.completed_actions}")
+        console.print(f"❌ Failed: {result_batch.failed_actions}")
+        
+        if result_batch.failed_actions > 0:
+            console.print(f"\n[yellow]Some actions failed. Check the backup directory:[/yellow]")
+            console.print(f"  {result_batch.backup_dir}")
+            
+            rollback_prompt = "Rollback all actions? (y/n): "
+            rollback = console.input(rollback_prompt).strip().lower()
+            if rollback in ('y', 'yes'):
+                console.print("[blue]Rolling back actions...[/blue]")
+                executor.rollback_batch(result_batch)
+                console.print("[green]Rollback completed.[/green]")
+        
+        return result_batch.failed_actions == 0
+        
+    except Exception as e:
+        console.print(f"[red]Error executing actions: {e}[/red]")
+        return False
+
+def run_interactive_review(config: dict):
+    """Run the complete interactive duplicate review process."""
+    console.print("[bold blue]Starting interactive duplicate review...[/bold blue]")
+    
+    # First, find duplicates
+    start_time = time.time()
+    with Progress() as progress:
+        task = progress.add_task("Scanning for duplicates...", total=100)
+        
+        algorithm_str = config.get("hash_algorithm", "dhash")
+        try:
+            algorithm = HashAlgorithm(algorithm_str)
+        except ValueError:
+            algorithm = HashAlgorithm.DHASH
+            log_action(f"Unknown algorithm '{algorithm_str}', using dhash")
+        
+        duplicate_groups = find_duplicates(
+            config.get("dirs", []),
+            config.get("types", []),
+            config.get("exclude_dirs", []),
+            config.get("similarity_threshold", 0.1),
+            algorithm,
+            config.get("max_workers", 4),
+            config.get("chunk_size")
+        )
+        progress.update(task, completed=100)
+    
+    exec_time = time.time() - start_time
+    
+    if not duplicate_groups:
+        console.print("[green]No duplicates found![/green]")
+        return
+    
+    console.print(f"[bold yellow]Found {len(duplicate_groups)} duplicate groups[/bold yellow]")
+    total_duplicates = sum(len(group) for group in duplicate_groups)
+    console.print(f"[bold magenta]Total duplicate files: {total_duplicates}[/bold magenta]")
+    
+    # Interactive review
+    actions, completed = interactive_duplicate_review(duplicate_groups, config)
+    
+    if not completed:
+        return
+    
+    # Execute selected actions
+    if actions:
+        success = execute_selected_actions(actions)
+        if success:
+            console.print("[bold green]Interactive review completed successfully![/bold green]")
+        else:
+            console.print("[bold red]Some errors occurred during execution.[/bold red]")
+    else:
+        console.print("[yellow]No actions were selected.[/yellow]")

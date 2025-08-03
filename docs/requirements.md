@@ -160,3 +160,262 @@ Provide clear privacy information in documentation.
 
 Summary:
 Implementing these features will make Photochomper more robust, user-friendly, and fully compliant with your requirements. Most enhancements involve integrating third-party libraries, improving the TUI, and expanding reporting and configuration options.
+
+The plan is to implement these features in the next version of Photochomper, ensuring it meets all outlined requirements and provides a comprehensive solution for managing duplicate photos effectively.
+
+ Perfect! The comprehensive improvement plan for PhotoChomper has been created and approved. The analysis revealed
+   that while the current implementation provides a solid foundation, it's missing approximately 70% of the
+  required functionality.
+
+  Key Findings:
+
+  Current Implementation Strengths:
+  - Clean modular architecture with proper separation of concerns
+  - Basic duplicate detection using SHA-256 hashing
+  - TUI-based configuration system
+  - CSV/JSON reporting capabilities
+  - Logging and basic progress tracking
+
+  Critical Gaps Identified:
+  - Advanced Detection: Missing perceptual hashing, video support, image quality analysis
+  - Action Execution: No delete/move/tag operations, only reporting
+  - Performance: Single-threaded, not optimized for large collections (300k+ photos)
+  - User Experience: Limited TUI functionality, no interactive duplicate review
+  - Automation: Basic scheduling only, no OS integration
+
+  16-Week Implementation Roadmap:
+
+  Phase 1 (Weeks 1-4): Core functionality with perceptual hashing, multi-threading, video support, and action
+  execution system
+
+  Phase 2 (Weeks 5-8): Advanced detection with OpenCV integration, enhanced EXIF processing, and custom ranking
+  rules
+
+  Phase 3 (Weeks 9-12): Enhanced UX with textual framework, automation/scheduling, and comprehensive reporting
+
+  Phase 4 (Weeks 13-16): Enterprise features including testing, documentation, localization, and plugin
+  architecture
+
+  The plan provides a clear path to transform PhotoChomper from a basic duplicate detector into a comprehensive
+  photo management solution that fully meets the detailed requirements while maintaining clean, maintainable code
+  architecture.
+
+
+
+  
+● To run PhotoChomper with uv, you have a few options depending on how you want to manage dependencies:
+
+  Option 1: Install dependencies and run directly
+
+  # Install all Phase 1 dependencies using uv
+  uv pip install pandas rich pillow imagehash opencv-python ffmpeg-python exifread psutil textual typer
+
+  # Then run the application
+  python main.py --setup
+  python main.py --search
+  python main.py --review
+
+  Option 2: Use uv with the pyproject.toml file
+
+  Since the project has a pyproject.toml file with all dependencies defined:
+
+  # Install the project and its dependencies
+  uv pip install -e .
+
+  # Then run normally
+  python main.py --setup
+  python main.py --review
+
+  Option 3: Use uv run (if you have uv 0.2.0+)
+
+  # Run directly with uv managing dependencies
+  uv run python main.py --setup
+  uv run python main.py --review
+
+  Option 4: Create a virtual environment with uv
+
+  # Create and activate virtual environment
+  uv venv photochomper-env
+  source photochomper-env/bin/activate  # On Windows: photochomper-env\Scripts\activate
+
+  # Install dependencies
+  uv pip install -e .
+
+  # Run the application
+  python main.py --setup
+  python main.py --review
+
+  Testing the enhanced features
+
+  Once dependencies are installed, you can test the new Phase 1 features:
+
+  # Test the core functionality
+  python test_perceptual.py
+  python test_video.py
+  python test_actions.py
+  python test_interactive_review.py
+
+  # Test the full interactive review workflow
+  python main.py --setup    # Configure with new perceptual hashing options
+  python main.py --review   # Interactive duplicate review with actions
+
+  Dependencies installed by uv
+
+  The Phase 1 implementation requires these packages:
+  - pandas - Data processing for reports
+  - rich - Rich terminal UI components
+  - pillow - Image processing
+  - imagehash - Perceptual hashing algorithms
+  - opencv-python - Image quality analysis
+  - ffmpeg-python - Video metadata extraction
+  - exifread - Enhanced EXIF reading
+  - psutil - Memory optimization
+  - textual - Advanced TUI components
+  - typer - CLI enhancements
+
+  The fastest approach is usually Option 1 if you just want to try the features quickly, or Option 2 if you want a proper installation.
+
+  error: Failed to inspect Python interpreter from virtual environment at `.venv\Scripts\python.exe`
+  Caused by: Python interpreter not found at `C:\Users\br8kw\Github\photochomper\photochomper\.venv\Scripts\python.exe`
+
+ uv pip install threw this error:
+
+● I notice you mentioned that uv pip install threw an error, but I don't see the actual error message in your message. Could you please share the
+  specific error you encountered?
+
+  In the meantime, here are some common issues and solutions when using uv with this project:
+
+  Common uv pip install issues:
+
+  1. If you get a "pyproject.toml not found" error:
+
+  # Make sure you're in the right directory
+  pwd
+  ls -la pyproject.toml
+
+  2. If you get dependency resolution errors:
+
+  # Try installing dependencies individually
+  uv pip install pandas rich pillow
+  uv pip install imagehash opencv-python
+  uv pip install ffmpeg-python exifread psutil textual typer
+
+  3. If you get permission errors:
+
+  # Create a virtual environment first
+  uv venv
+  source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+  uv pip install -e .
+
+  4. If opencv-python fails to install:
+
+  # Try the headless version instead
+  uv pip install opencv-python-headless
+
+  5. If ffmpeg-python fails:
+
+  # You might need ffmpeg system package first
+  sudo apt install ffmpeg  # On Ubuntu/Debian
+  # or
+  brew install ffmpeg      # On macOS
+
+  Please share the exact error message you're seeing, and I can provide a more targeted solution!
+
+> error: Failed to inspect Python interpreter from virtual environment at `.venv\Scripts\python.exe`
+    Caused by: Python interpreter not found at `C:\Users\br8kw\Github\photochomper\photochomper\.venv\Scripts\python.exe`
+
+● This error indicates that the virtual environment wasn't created properly or is corrupted. Let's fix this step by step:
+
+  Solution: Recreate the virtual environment
+
+  # First, remove the existing broken .venv directory
+  rm -rf .venv
+
+  # Create a fresh virtual environment with uv
+  uv venv
+
+  # Activate the virtual environment
+  # On WSL/Linux:
+  source .venv/bin/activate
+  # OR on Windows Command Prompt (if you're using that):
+  # .venv\Scripts\activate
+
+  # Verify Python is working
+  python --version
+
+  # Now install the dependencies
+  uv pip install -e .
+
+  Alternative approach if the above doesn't work:
+
+  # Remove broken venv
+  rm -rf .venv
+
+  # Create venv with explicit Python version
+  uv venv --python python3
+
+  # Activate and install
+  source .venv/bin/activate
+  uv pip install pandas rich pillow imagehash opencv-python ffmpeg-python exifread psutil textual typer
+
+  Quick test without virtual environment:
+
+  If you want to test immediately without a venv:
+
+  # Install directly to your system Python (not recommended for production)
+  uv pip install --system pandas rich pillow imagehash opencv-python ffmpeg-python exifread psutil textual typer
+
+  # Then run
+  python main.py --setup
+
+  Check your current environment:
+
+  # Verify you're in the right directory
+  pwd
+  ls -la
+
+  # Check if Python 3 is available
+  which python3
+  python3 --version
+
+  The key issue is that uv tried to find a Python interpreter in a Windows-style path (C:\Users\...) but you're in WSL, so the paths don't match up.
+  The fresh uv venv command should create a proper WSL-compatible virtual environment.
+
+  Try the first solution and let me know if you encounter any other errors!
+
+
+  Looking at the code in src/tui.py:298-300, the Quality score is calculated as:
+
+  if metadata['width'] and metadata['height']:
+      pixels = metadata['width'] * metadata['height']
+      quality_score = f"{(pixels * stat.st_size) / 1000000:.1f}"
+
+  What the Quality Score Represents
+
+  The Quality score is a composite metric that combines:
+  - Image resolution (width × height = total pixels)
+  - File size (in bytes)
+
+  How It's Calculated
+
+  Formula: (pixels × file_size_bytes) / 1,000,000
+
+  Example:
+  - Image: 1920×1080 pixels = 2,073,600 pixels
+  - File size: 2.1 MB = 2,100,000 bytes
+  - Quality score = (2,073,600 × 2,100,000) ÷ 1,000,000 = 4,354.6
+
+  What Higher Scores Mean
+
+  A higher quality score indicates:
+  - Better resolution (more pixels)
+  - Larger file size (less compression/higher quality)
+  - Better overall image quality
+
+  This helps identify which duplicate is the "best" version to keep - typically the one with higher resolution and
+  less compression artifacts.
+
+  The score is used to help determine the "master" file (shown in green with 👑) when multiple duplicates are
+  found.
+
+  

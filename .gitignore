@@ -48,4 +48,4 @@ coverage.xml
 *config.json
 *.tmp
 *.temp
-uv.lock
+*.lock

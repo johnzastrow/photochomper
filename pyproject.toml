@@ -1,11 +1,18 @@
 [project]
 name = "photochomper"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.2.0"
+description = "Advanced duplicate photo and video finder with perceptual hashing and multi-threading"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "pandas>=2.3.1",
     "pillow>=11.3.0",
     "rich>=14.1.0",
+    "imagehash>=4.3.1",
+    "opencv-python>=4.8.0",
+    "ffmpeg-python>=0.2.0",
+    "exifread>=3.0.0",
+    "psutil>=5.9.0",
+    "textual>=0.41.0",
+    "typer>=0.9.0",
 ]
