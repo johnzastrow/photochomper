@@ -2,6 +2,8 @@
 
 PhotoChomper is a Python-based tool for managing and organizing photo collections by identifying duplicate images and videos. It features an advanced terminal user interface (TUI) for easy setup and configuration, supports multiple similarity detection algorithms, provides interactive duplicate review with selective actions, and includes comprehensive reporting capabilities.
 
+![PhotoChomper Logo](docs/chomper.png)
+
 ---
 
 ## Table of Contents
@@ -9,8 +11,17 @@ PhotoChomper is a Python-based tool for managing and organizing photo collection
 - [PhotoChomper](#photochomper)
   - [Table of Contents](#table-of-contents)
   - [Key Features](#key-features)
+    - [**🔍 Advanced Duplicate Detection**](#-advanced-duplicate-detection)
+    - [**🎯 Interactive Review System**](#-interactive-review-system)
+    - [**📊 Advanced Reporting**](#-advanced-reporting)
+    - [**⚙️ Smart Configuration**](#️-smart-configuration)
   - [Recent Updates](#recent-updates)
+    - [**Version 2.0** - Major Feature Release](#version-20---major-feature-release)
   - [Installation](#installation)
+    - [**Prerequisites**](#prerequisites)
+    - [**Install Dependencies**](#install-dependencies)
+    - [**Optional Dependencies for Enhanced Features**](#optional-dependencies-for-enhanced-features)
+    - [**Building Single Executable for Windows**](#building-single-executable-for-windows)
   - [Quick Start](#quick-start)
   - [Usage](#usage)
     - [Interactive Setup](#interactive-setup)
@@ -19,13 +30,36 @@ PhotoChomper is a Python-based tool for managing and organizing photo collection
     - [Generate Summary Reports](#generate-summary-reports)
     - [Schedule Repeated Searches](#schedule-repeated-searches)
   - [Duplicate Detection Methods](#duplicate-detection-methods)
+    - [**SHA256 (Always Calculated)**](#sha256-always-calculated)
+    - [**Similarity Algorithms**](#similarity-algorithms)
+    - [**Similarity Thresholds**](#similarity-thresholds)
   - [Interactive Review Features](#interactive-review-features)
+    - [**Visual Indicators**](#visual-indicators)
+    - [**Comprehensive Metadata Display**](#comprehensive-metadata-display)
+    - [**Smart Action Handling**](#smart-action-handling)
   - [Reporting and Analysis](#reporting-and-analysis)
+    - [**Output Formats**](#output-formats)
+    - [**Report Contents**](#report-contents)
+    - [**Auto-Discovery**](#auto-discovery)
   - [Configuration](#configuration)
+    - [**Configuration Files**](#configuration-files)
+    - [**Key Settings**](#key-settings)
+    - [**Multiple Configurations**](#multiple-configurations)
   - [Advanced Usage](#advanced-usage)
+    - [**Custom Config and Output Locations**](#custom-config-and-output-locations)
+    - [**Memory Optimization for Large Collections**](#memory-optimization-for-large-collections)
+    - [**Multi-threading Configuration**](#multi-threading-configuration)
+    - [**Batch Operations**](#batch-operations)
   - [Troubleshooting](#troubleshooting)
+    - [**Common Issues**](#common-issues)
+    - [**Log Files**](#log-files)
+    - [**Getting Help**](#getting-help)
   - [Contributing](#contributing)
+    - [**Development Setup**](#development-setup)
+    - [**Code Structure**](#code-structure)
+    - [**Testing**](#testing)
   - [License](#license)
+  - [Acknowledgements](#acknowledgements)
 
 ---
 
