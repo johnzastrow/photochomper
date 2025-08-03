@@ -113,3 +113,50 @@ Create a full set of documentation for the Photochomper program, including requi
 ---
 
 *All requirements above are derived from the original document and reorganized for clarity and logical
+
+
+A reviewer wrote the following about the alpha version of Photochomper:
+
+Here are further improvements to better meet the requirements:
+
+1. Advanced Duplicate Detection
+Implement perceptual hashing (e.g., imagehash, phash, dhash) for similar images, not just exact matches.
+Add support for video file hashing and metadata extraction.
+2. Metadata Extraction
+Use libraries like Pillow or exifread for EXIF, GPS, camera model, lens, and other metadata.
+Extract and compare metadata for ranking and reporting.
+3. Image Quality Analysis
+Integrate image quality metrics (resolution, sharpness, color balance, Laplacian variance, etc.) using OpenCV or PIL.
+4. Custom Actions & Tagging
+Allow users to tag, rate, or rename duplicates via TUI.
+Enable custom rules for handling duplicates (move, rename, tag, etc.).
+5. Batch Processing
+Add batch delete/move/tag actions with confirmation and backup.
+Allow importing actions from exported reports.
+6. Reporting & Logging
+Include more attributes in reports (creation/modification dates, file size, EXIF, GPS, etc.).
+Generate summary and custom reports based on user criteria.
+Log all actions and errors with more detail.
+7. Notifications & Alerts
+Add desktop notifications or email alerts when duplicates are found or actions are taken.
+8. Localization
+Support multiple languages for the TUI and reports.
+9. Scheduling
+Integrate with OS schedulers (Windows Task Scheduler, cron) for background scans.
+10. User Documentation
+Provide comprehensive user and troubleshooting guides.
+Add a help section in the TUI.
+11. Unit Testing
+Add unit tests for all major functions to ensure reliability.
+12. Performance
+Use multi-threading or multiprocessing for scanning and hashing large directories.
+Optimize file I/O and hashing for speed.
+13. Configuration
+Allow saving/loading multiple configurations.
+Support exclusion/inclusion by keywords in directory names.
+14. Security & Privacy
+Ensure no personal data is stored or reported.
+Provide clear privacy information in documentation.
+
+Summary:
+Implementing these features will make Photochomper more robust, user-friendly, and fully compliant with your requirements. Most enhancements involve integrating third-party libraries, improving the TUI, and expanding reporting and configuration options.
