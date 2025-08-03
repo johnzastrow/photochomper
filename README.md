@@ -156,6 +156,9 @@ uv pip install pyinstaller
 pip install pyinstaller
 ```
 
+You and also just do the following with uv:
+`uvx pyinstaller --onefile --name="PhotoChomper" --add-data "src;src" --collect-all="rich"   --collect-all="pandas" --collect-all="PIL" main.py`
+
 **Build Single Executable:**
 ```bash
 # Navigate to PhotoChomper directory
