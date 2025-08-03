@@ -104,6 +104,119 @@ uv pip install ffmpeg-python
 uv pip install iptcinfo3 python-xmp-toolkit exifread
 ```
 
+### **Building Single Executable for Windows**
+
+PhotoChomper can be built as a single `.exe` file for easy distribution on Windows systems without requiring Python installation.
+
+**Prerequisites for Building:**
+- Windows 10/11
+- Python 3.8+ installed
+- All PhotoChomper dependencies installed
+
+**Install PyInstaller:**
+```bash
+# Using uv (recommended)
+uv pip install pyinstaller
+
+# Or using pip
+pip install pyinstaller
+```
+
+**Build Single Executable:**
+```bash
+# Navigate to PhotoChomper directory
+cd photochomper/photochomper
+
+# Build single executable (recommended)
+pyinstaller --onefile --name="PhotoChomper" --add-data "src;src" main.py
+
+# Alternative: Build with console window (for debugging)
+pyinstaller --onefile --console --name="PhotoChomper-Debug" --add-data "src;src" main.py
+
+# Advanced build with icon (if you have an icon file)
+pyinstaller --onefile --name="PhotoChomper" --add-data "src;src" --icon="icon.ico" main.py
+```
+
+**Build Output:**
+- Executable will be created in `dist/PhotoChomper.exe`
+- File size: ~50-100MB (includes Python runtime and all dependencies)
+- No Python installation required on target machines
+
+**Advanced Build Options:**
+```bash
+# Build with hidden imports (if you encounter import errors)
+pyinstaller --onefile --name="PhotoChomper" ^
+    --add-data "src;src" ^
+    --hidden-import="PIL" ^
+    --hidden-import="imagehash" ^
+    --hidden-import="cv2" ^
+    --hidden-import="ffmpeg" ^
+    main.py
+
+# Build with specific Python optimizations
+pyinstaller --onefile --name="PhotoChomper" ^
+    --add-data "src;src" ^
+    --optimize=2 ^
+    --strip ^
+    main.py
+```
+
+**Testing the Executable:**
+```bash
+# Test the built executable
+cd dist
+PhotoChomper.exe --help
+PhotoChomper.exe --setup
+```
+
+**Distribution:**
+- Copy `PhotoChomper.exe` to any Windows machine
+- No additional installation required
+- Run directly from command prompt or create desktop shortcut
+
+**Troubleshooting Build Issues:**
+
+**Missing modules error:**
+```bash
+# Add missing modules explicitly
+pyinstaller --onefile --name="PhotoChomper" ^
+    --add-data "src;src" ^
+    --collect-all="rich" ^
+    --collect-all="pandas" ^
+    --collect-all="PIL" ^
+    main.py
+```
+
+**Large executable size:**
+```bash
+# Build directory version (smaller startup time)
+pyinstaller --name="PhotoChomper" --add-data "src;src" main.py
+# Creates PhotoChomper/ directory with executable and dependencies
+```
+
+**Runtime errors:**
+```bash
+# Build with debug console to see error messages
+pyinstaller --onefile --console --name="PhotoChomper-Debug" --add-data "src;src" main.py
+```
+
+**Creating Desktop Shortcut:**
+1. Right-click on desktop → New → Shortcut
+2. Browse to `PhotoChomper.exe`
+3. Name: "PhotoChomper - Duplicate Photo Manager"
+4. Optional: Change icon in shortcut properties
+
+**Creating Installer (Advanced):**
+For professional distribution, consider using NSIS or Inno Setup to create a proper installer:
+```bash
+# Install NSIS or Inno Setup
+# Create installer script that:
+# - Copies PhotoChomper.exe to Program Files
+# - Creates Start Menu shortcuts
+# - Creates Desktop shortcut
+# - Adds to Windows Programs list
+```
+
 ---
 
 ## Quick Start
