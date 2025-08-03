@@ -35,6 +35,7 @@ PhotoChomper is a Python-based tool for managing and organizing photo collection
   - [FAQ](#faq)
   - [Updates](#updates)
   - [Disclaimer](#disclaimer)
+  - [TODO](#todo)
 
 ---
 
@@ -102,9 +103,10 @@ PhotoChomper is a Python-based tool for managing and organizing photo collection
    git clone https://github.com/yourusername/photochomper.git
    cd photochomper/photochomper
    ```
-2. **Install dependencies:**
+
+2. **Install dependencies using [uv](https://github.com/astral-sh/uv):**
    ```sh
-   pip install -r requirements.txt
+   uv pip install -r requirements.txt
    ```
    *Recommended: `iptcinfo3`, `python-xmp-toolkit`, `rich`*
 
@@ -115,6 +117,7 @@ PhotoChomper is a Python-based tool for managing and organizing photo collection
 ### Interactive Setup
 
 ```sh
+uv pip install -r requirements.txt  # If not already done
 python main.py --setup
 ```
 Follow the prompts to configure directories, file types, and output options.
@@ -199,3 +202,69 @@ See [Release Notes](#release-notes) for the latest features and fixes.
 ## Disclaimer
 
 PhotoChomper is provided as-is. Always review duplicates before deleting
+
+---
+
+## TODO
+
+PhotoChomper is actively being developed. The following features and requirements from the [requirements](docs/requirements.md) are not yet fully implemented:
+
+- **Advanced Duplicate Detection**
+  - Perceptual hashing (phash, dhash, image similarity for near-duplicates)
+  - Video file hashing and metadata extraction
+  - Advanced image comparison algorithms for different formats
+
+- **Metadata Extraction**
+  - Full EXIF, GPS, camera model, lens, and software metadata extraction and comparison
+
+- **Image Quality Analysis**
+  - Metrics such as resolution, sharpness, color balance, Laplacian variance, Radon transform
+
+- **Custom Actions & Tagging**
+  - Tag, rate, rename, or move duplicates via TUI
+  - Custom rules for handling duplicates
+
+- **Batch Processing**
+  - Batch delete/move/tag actions with confirmation and backup
+  - Import actions from exported reports
+
+- **Reporting & Logging**
+  - More attributes in reports (dimensions, EXIF, GPS, software, etc.)
+  - Custom and summary reports based on user criteria
+  - More detailed logging of actions and errors
+
+- **Notifications & Alerts**
+  - Desktop notifications or email alerts for duplicate events
+
+- **Localization**
+  - Support for multiple languages in TUI and reports
+
+- **Scheduling**
+  - Integration with OS schedulers (Windows Task Scheduler, cron) for background scans
+
+- **User Documentation**
+  - Comprehensive user and troubleshooting guides
+  - In-app help section in TUI
+
+- **Unit Testing**
+  - Unit tests for all major functions
+
+- **Performance**
+  - Multi-threading/multiprocessing for scanning and hashing large directories
+  - Optimized file I/O and hashing
+
+- **Configuration**
+  - Saving/loading multiple configurations
+  - Exclusion/inclusion by keywords in directory names
+  - Custom rules for identifying duplicates
+
+- **Security & Privacy**
+  - Ensure no personal data is stored or reported
+  - Clear privacy information in documentation
+
+- **Other**
+  - Tagging images for categorization
+
+---
+
+*See [requirements.md](docs/requirements.md) for the full specification
