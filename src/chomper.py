@@ -215,12 +215,13 @@ def main():
     parser.add_argument("--setup", action="store_true", help="Run setup TUI")
     parser.add_argument("--search", action="store_true", help="Run duplicate search")
     parser.add_argument("--schedule", type=int, help="Schedule search every N hours")
-    parser.add_argument("--help", action="store_true", help="Show help")
     args = parser.parse_args()
 
-    if args.help:
-        show_help()
+    if not (args.setup or args.search or args.schedule):
+        console.print("[bold yellow]No command specified. Use --help for options.[/bold yellow]")
+        parser.print_help()
         return
+
     if args.setup:
         tui_setup()
     config = load_config()

@@ -1,0 +1,12 @@
+{
+  "dirs": [
+    "C:\\Users\\br8kw\\OneDrive\\Pictures"
+  ],
+  "types": [
+    "jpg",
+    "png",
+    "heic"
+  ],
+  "exclude_dirs": [],
+  "similarity_threshold": 0.9
+}
