@@ -520,7 +520,7 @@ def backup_file(filepath: str):
 
 def find_duplicates(dirs: List[str], types: List[str], exclude_dirs: List[str], 
                    similarity_threshold: float = 0.1, algorithm: HashAlgorithm = HashAlgorithm.DHASH,
-                   max_workers: int = 4, chunk_size: int = None) -> List[List[str]]:
+                   max_workers: int = 4, chunk_size: int = None) -> Tuple[List[List[str]], Dict[str, 'HashResult']]:
     """Find duplicate files using configurable hash algorithms with memory optimization."""
     
     # Check initial memory stats
@@ -556,37 +556,25 @@ def find_duplicates(dirs: List[str], types: List[str], exclude_dirs: List[str],
         
         # Process current chunk with threading
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            if algorithm == HashAlgorithm.SHA256:
-                # Use SHA256 for exact matching
-                future_to_file = {executor.submit(sha256_file, f): f for f in chunk_files}
-                for future in concurrent.futures.as_completed(future_to_file):
-                    filepath = future_to_file[future]
-                    try:
-                        hash_value = future.result()
-                        if hash_value:
-                            chunk_hash_results.append(HashResult(algorithm, hash_value, filepath, get_file_type(filepath)))
-                    except Exception as e:
-                        log_action(f"Error processing {filepath}: {e}")
-            else:
-                # Use perceptual hashing for similarity matching
-                future_to_file = {}
-                for f in chunk_files:
-                    file_type = get_file_type(f)
-                    if file_type == FileType.IMAGE:
-                        future_to_file[executor.submit(compute_perceptual_hash, f, algorithm)] = f
-                    elif file_type == FileType.VIDEO:
-                        future_to_file[executor.submit(compute_video_hash, f, algorithm)] = f
-                
-                for future in concurrent.futures.as_completed(future_to_file):
-                    filepath = future_to_file[future]
-                    try:
-                        result = future.result()
-                        if result.hash_value and not result.error:
-                            chunk_hash_results.append(result)
-                        elif result.error:
-                            log_action(f"Hash computation failed for {filepath}: {result.error}")
-                    except Exception as e:
-                        log_action(f"Error processing {filepath}: {e}")
+            # Always use perceptual hashing (SHA256 is calculated within each function)
+            future_to_file = {}
+            for f in chunk_files:
+                file_type = get_file_type(f)
+                if file_type == FileType.IMAGE:
+                    future_to_file[executor.submit(compute_perceptual_hash, f, algorithm)] = f
+                elif file_type == FileType.VIDEO:
+                    future_to_file[executor.submit(compute_video_hash, f, algorithm)] = f
+            
+            for future in concurrent.futures.as_completed(future_to_file):
+                filepath = future_to_file[future]
+                try:
+                    result = future.result()
+                    if result.hash_value and not result.error:
+                        chunk_hash_results.append(result)
+                    elif result.error:
+                        log_action(f"Hash computation failed for {filepath}: {result.error}")
+                except Exception as e:
+                    log_action(f"Error processing {filepath}: {e}")
         
         # Add chunk results to overall results
         all_hash_results.extend(chunk_hash_results)
@@ -617,11 +605,14 @@ def find_duplicates(dirs: List[str], types: List[str], exclude_dirs: List[str],
         # Similarity-based matching - use memory-efficient comparison
         duplicate_groups = find_similarity_groups_efficient(all_hash_results, similarity_threshold, algorithm)
     
+    # Create hash results dictionary for UI display
+    hash_results_dict = {result.file_path: result for result in all_hash_results}
+    
     # Final memory stats
     final_memory = MemoryStats.current()
     log_action(f"Duplicate detection completed. Found {len(duplicate_groups)} groups. Final memory usage: {final_memory.percent_used:.1f}%")
     
-    return duplicate_groups
+    return duplicate_groups, hash_results_dict
 
 def find_similarity_groups_efficient(hash_results: List[HashResult], threshold: float, 
                                    algorithm: HashAlgorithm) -> List[List[str]]:
@@ -657,6 +648,8 @@ def find_similarity_groups_efficient(hash_results: List[HashResult], threshold: 
             if similarity <= threshold:
                 similar_files.append(result2.file_path)
                 processed.add(result2.file_path)
+                # Store similarity score in the result objects for later display
+                result2.similarity_score = similarity
             
             # Log progress for very large datasets
             if comparisons_done % 10000 == 0:

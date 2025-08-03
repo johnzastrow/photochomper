@@ -227,7 +227,7 @@ def run_search(config: dict, config_path: str = None):
             algorithm = HashAlgorithm.DHASH
             log_action(f"Unknown algorithm '{algorithm_str}', using dhash")
         
-        dupes = find_duplicates(
+        dupes, _ = find_duplicates(
             config.get("dirs", []),
             config.get("types", []),
             config.get("exclude_dirs", []),
@@ -254,29 +254,79 @@ def schedule_search(interval_hours: int, config: dict):
         run_search(config)
         time.sleep(interval_hours * 3600)
 
-def display_duplicate_group(group: list, group_id: int) -> None:
+def get_file_selection(group: list, action_name: str) -> list:
+    """Get user selection of specific files from a group by row numbers."""
+    while True:
+        console.print(f"\n[yellow]📋 {action_name} - Select Files:[/yellow]")
+        console.print("Enter row numbers to select (comma-separated, e.g., '1,3,4') or 'all' for all files:")
+        
+        # Display numbered list of files
+        for i, file_path in enumerate(group, 1):
+            filename = Path(file_path).name
+            status_text = "👑 Master" if i == 1 else f"#{i-1} Duplicate"
+            console.print(f"  [bold]{i}.[/bold] [{status_text}] {filename}")
+        
+        selection = console.input(f"\n[bold]Select files for {action_name.lower()} (or 'cancel'): [/bold]").strip().lower()
+        
+        if selection == 'cancel':
+            return []
+        elif selection == 'all':
+            return group.copy()
+        else:
+            try:
+                # Parse comma-separated row numbers
+                row_numbers = [int(x.strip()) for x in selection.split(',') if x.strip()]
+                selected_files = []
+                
+                for row_num in row_numbers:
+                    if 1 <= row_num <= len(group):
+                        selected_files.append(group[row_num - 1])  # Convert to 0-based index
+                    else:
+                        console.print(f"[red]Row {row_num} is out of range (1-{len(group)})[/red]")
+                        break
+                else:
+                    # All row numbers were valid
+                    if selected_files:
+                        return selected_files
+                    else:
+                        console.print("[red]No files selected.[/red]")
+                        continue
+                
+                # If we broke out of the loop, there was an error
+                continue
+                
+            except ValueError:
+                console.print("[red]Invalid input. Please enter numbers separated by commas (e.g., '1,3,4') or 'all'.[/red]")
+                continue
+
+def display_duplicate_group(group: list, group_id: int, hash_results: dict = None) -> None:
     """Display a single group of duplicate files with metadata."""
     console.print(f"\n[bold cyan]📁 Duplicate Group {group_id + 1}[/bold cyan]")
     console.print(f"[dim]Found {len(group)} identical/similar files[/dim]")
     
-    table = Table(show_header=True, header_style="bold magenta", box=None)
-    table.add_column("Status", style="bold", width=8)
-    table.add_column("File", style="cyan", no_wrap=False)
-    table.add_column("Size", justify="right", width=10)
-    table.add_column("Created", justify="center", width=16)
-    table.add_column("Resolution", justify="center", width=12)
-    table.add_column("Quality", justify="right", width=10)
+    table = Table(show_header=True, header_style="bold magenta", box=None, expand=True)
+    table.add_column("Row", style="bold", width=4, no_wrap=False)
+    table.add_column("Status", style="bold", width=12, no_wrap=False)
+    table.add_column("File", style="cyan", min_width=30, no_wrap=False)
+    table.add_column("Size", justify="right", width=10, no_wrap=False)
+    table.add_column("Created", justify="center", width=18, no_wrap=False)
+    table.add_column("Resolution", justify="center", width=12, no_wrap=False)
+    table.add_column("SHA256", justify="left", width=70, no_wrap=False)
+    table.add_column("Similarity", justify="right", width=12, no_wrap=False)
     
     for i, file_path in enumerate(group):
         try:
             file_path_obj = Path(file_path)
             if not file_path_obj.exists():
+                filename = Path(file_path).name
                 table.add_row(
+                    f"[red]{i + 1}[/red]",
                     "[red]❌ MISSING[/red]",
-                    f"[red]{file_path}[/red]", 
+                    f"[red]{filename}[/red]", 
                     "[red]Missing[/red]", 
                     "[red]N/A[/red]", 
                     "[red]N/A[/red]", 
+                    "[red]N/A[/red]",
                     "[red]N/A[/red]"
                 )
                 continue
@@ -298,38 +348,60 @@ def display_duplicate_group(group: list, group_id: int) -> None:
                     pixels = metadata['width'] * metadata['height']
                     quality_score = f"{(pixels * stat.st_size) / 1000000:.1f}"
             
+            # Get hash information if available
+            sha256_hash = "N/A"
+            similarity_score = "N/A"
+            if hash_results and file_path in hash_results:
+                hash_result = hash_results[file_path]
+                if hash_result.sha256_hash:
+                    sha256_hash = hash_result.sha256_hash  # Show full SHA256 hash
+                if i > 0 and hash_result.similarity_score > 0:  # Don't show similarity for master file
+                    similarity_score = f"{hash_result.similarity_score:.3f}"
+            
+            # Get just the filename from the full path
+            filename = Path(file_path).name
+            
             # Determine status and coloring
             if i == 0:
+                row_display = f"[bold green]{i + 1}[/bold green]"
                 status = "[bold green]👑 MASTER[/bold green]"
-                file_display = f"[bold green]{file_path}[/bold green]"
+                file_display = f"[bold green]{filename}[/bold green]"
                 size_display = f"[green]{size_kb:.0f} KB[/green]"
                 created_display = f"[green]{created}[/green]"
                 resolution_display = f"[green]{resolution}[/green]"
-                quality_display = f"[green]{quality_score}[/green]"
+                sha256_display = f"[green]{sha256_hash}[/green]"
+                similarity_display = f"[green]MASTER[/green]"
             else:
+                row_display = f"{i + 1}"
                 status = f"[dim]#{i} DUPLICATE[/dim]"
-                file_display = file_path
+                file_display = filename
                 size_display = f"{size_kb:.0f} KB"
                 created_display = created
                 resolution_display = resolution
-                quality_display = quality_score
+                sha256_display = sha256_hash
+                similarity_display = similarity_score
             
             table.add_row(
+                row_display,
                 status,
                 file_display,
                 size_display,
                 created_display,
                 resolution_display,
-                quality_display
+                sha256_display,
+                similarity_display
             )
             
         except Exception as e:
+            filename = Path(file_path).name
             table.add_row(
+                f"[red]{i + 1}[/red]",
                 "[red]❌ ERROR[/red]",
-                f"[red]{file_path}[/red]", 
+                f"[red]{filename}[/red]", 
                 "[red]Error[/red]", 
                 "[red]N/A[/red]", 
                 "[red]N/A[/red]", 
+                "[red]N/A[/red]",
                 "[red]N/A[/red]"
             )
     
@@ -341,7 +413,7 @@ def display_duplicate_group(group: list, group_id: int) -> None:
     console.print(f"[dim]• {len(group) - 1} duplicate(s) available for action[/dim]")
     console.print(f"[dim]• Choose 'd' to delete duplicates, 'm' to move them, or 'k' to select different master[/dim]")
 
-def interactive_duplicate_review(duplicate_groups: list, config: dict = None) -> tuple:
+def interactive_duplicate_review(duplicate_groups: list, config: dict = None, hash_results: dict = None) -> tuple:
     """Interactive review of duplicate groups with action selection."""
     console.print("\n[bold yellow]📋 Interactive Duplicate Review[/bold yellow]")
     console.print("Review each group of duplicates and choose actions.\n")
@@ -351,12 +423,13 @@ def interactive_duplicate_review(duplicate_groups: list, config: dict = None) ->
     console.print("  • [bold green]Green text[/bold green] = Master file (recommended to keep)")
     console.print("  • [white]White text[/white] = Duplicate files (candidates for action)")
     console.print("  • [red]Red text[/red] = Missing or error files")
-    console.print("  • Quality Score = Resolution × File Size (higher = better quality)")
+    console.print("  • SHA256 = Full file content hash for exact duplicate identification")
+    console.print("  • Similarity = How similar files are (0.000 = identical, higher = more different)")
     
     console.print("\n[bold cyan]⚡ Available Actions:[/bold cyan]")
     console.print("  • [bold](k)eep[/bold] - Choose specific file to keep, delete others")
-    console.print("  • [bold](d)elete[/bold] - Delete all duplicates, keep master (green) file")
-    console.print("  • [bold](m)ove[/bold] - Move duplicates to folder, keep master file")
+    console.print("  • [bold](d)elete[/bold] - Select specific files to delete")
+    console.print("  • [bold](m)ove[/bold] - Select specific files to move to folder")
     console.print("  • [bold](s)kip[/bold] - Skip this group, make no changes")
     console.print("  • [bold](a)uto[/bold] - Enable automatic processing with chosen strategy")
     console.print("  • [bold](q)uit[/bold] - Exit review (no changes made)")
@@ -367,6 +440,7 @@ def interactive_duplicate_review(duplicate_groups: list, config: dict = None) ->
     current_group = 0
     auto_mode = False
     auto_strategy = "first"
+    remembered_move_dir = None  # Remember move directory choice across groups
     
     while current_group < len(duplicate_groups):
         group = duplicate_groups[current_group]
@@ -379,11 +453,12 @@ def interactive_duplicate_review(duplicate_groups: list, config: dict = None) ->
             continue
         
         # Display current group
-        display_duplicate_group(group, current_group)
+        display_duplicate_group(group, current_group, hash_results)
         
         # Show navigation info and action prompt
         console.print(f"\n[bold]📊 Progress: Group {current_group + 1} of {len(duplicate_groups)}[/bold]")
         console.print("[cyan]What would you like to do with this group?[/cyan]")
+        console.print("[dim]💡 Tip: You can select specific files by entering row numbers (e.g., '2,3' for rows 2 and 3)[/dim]")
         
         while True:
             action = console.input("\n[bold]Choose action [k/d/m/s/q/a]: [/bold]").strip().lower()
@@ -475,51 +550,82 @@ def interactive_duplicate_review(duplicate_groups: list, config: dict = None) ->
                     continue
                     
             elif action == 'd':
-                # Delete all but first
+                # Delete selected files
+                selected_files = get_file_selection(group, "DELETE")
+                if not selected_files:
+                    console.print("[dim]Delete action cancelled[/dim]")
+                    continue
+                
                 console.print(f"[yellow]📋 DELETE Action Preview:[/yellow]")
-                console.print(f"[green]✅ KEEP: Master file (👑)[/green]")
-                console.print(f"[red]🗑️  DELETE: {len(group) - 1} duplicate file(s)[/red]")
-                for i, file_path in enumerate(group[1:], 1):
+                console.print(f"[red]🗑️  DELETE: {len(selected_files)} selected file(s)[/red]")
+                for i, file_path in enumerate(selected_files, 1):
                     console.print(f"[red]   #{i}: {Path(file_path).name}[/red]")
                 
-                confirm = console.input(f"\n[bold]Delete {len(group) - 1} duplicate(s)? (y/n): [/bold]").strip().lower()
+                confirm = console.input(f"\n[bold]Delete {len(selected_files)} selected file(s)? (y/n): [/bold]").strip().lower()
                 if confirm in ('y', 'yes'):
-                    delete_actions = create_delete_actions([group], "first")
-                    selected_actions.extend(delete_actions)
-                    console.print(f"[green]✅ {len(group) - 1} files queued for deletion[/green]")
+                    # Create delete actions for selected files only
+                    for file_path in selected_files:
+                        action_obj = FileAction(
+                            action_id=f"manual_delete_{current_group}_{len(selected_actions)}",
+                            action_type=ActionType.DELETE,
+                            source_path=file_path,
+                            metadata={"group_id": current_group, "manual_review": True, "selected_files": len(selected_files)}
+                        )
+                        selected_actions.append(action_obj)
+                    console.print(f"[green]✅ {len(selected_files)} files queued for deletion[/green]")
                     break
                 else:
                     console.print("[dim]Delete action cancelled[/dim]")
                     continue
                 
             elif action == 'm':
-                # Move duplicates to a directory
+                # Move selected files to a directory
+                selected_files = get_file_selection(group, "MOVE")
+                if not selected_files:
+                    console.print("[dim]Move action cancelled[/dim]")
+                    continue
+                
                 console.print(f"[yellow]📋 MOVE Action Preview:[/yellow]")
-                console.print(f"[green]✅ KEEP: Master file (👑) in original location[/green]")
-                console.print(f"[blue]📦 MOVE: {len(group) - 1} duplicate file(s) to review folder[/blue]")
+                console.print(f"[blue]📦 MOVE: {len(selected_files)} selected file(s) to review folder[/blue]")
                 
-                # Use configured move directory as default
+                # Determine move directory: use remembered > config > ask user
+                move_dir = None
                 config_move_dir = config.get("duplicate_move_dir", "") if config else ""
-                default_prompt = f" [{config_move_dir}]" if config_move_dir else ""
-                move_dir = console.input(f"Directory to move duplicates to{default_prompt}: ").strip()
                 
-                # Use configured directory if no input provided
-                if not move_dir and config_move_dir:
+                if remembered_move_dir:
+                    # Use previously chosen directory
+                    move_dir = remembered_move_dir
+                    console.print(f"[dim]Using previously chosen directory: {move_dir}[/dim]")
+                elif config_move_dir:
+                    # Use configured directory
                     move_dir = config_move_dir
                     console.print(f"[dim]Using configured directory: {move_dir}[/dim]")
+                else:
+                    # Ask user for directory
+                    move_dir = console.input(f"Directory to move selected files to: ").strip()
+                    if move_dir:
+                        remembered_move_dir = move_dir  # Remember this choice
                 
                 if move_dir:
                     try:
                         # Show what will be moved
                         console.print(f"[blue]📂 Destination: {move_dir}[/blue]")
-                        for i, file_path in enumerate(group[1:], 1):
+                        for i, file_path in enumerate(selected_files, 1):
                             console.print(f"[blue]   #{i}: {Path(file_path).name}[/blue]")
                         
-                        confirm = console.input(f"\n[bold]Move {len(group) - 1} duplicate(s) to {Path(move_dir).name}? (y/n): [/bold]").strip().lower()
+                        confirm = console.input(f"\n[bold]Move {len(selected_files)} selected file(s) to {Path(move_dir).name}? (y/n): [/bold]").strip().lower()
                         if confirm in ('y', 'yes'):
-                            move_actions = create_move_actions([group], move_dir, "first")
-                            selected_actions.extend(move_actions)
-                            console.print(f"[green]✅ {len(group) - 1} files queued for moving[/green]")
+                            # Create move actions for selected files only
+                            for file_path in selected_files:
+                                action_obj = FileAction(
+                                    action_id=f"manual_move_{current_group}_{len(selected_actions)}",
+                                    action_type=ActionType.MOVE,
+                                    source_path=file_path,
+                                    target_path=str(Path(move_dir) / Path(file_path).name),
+                                    metadata={"group_id": current_group, "manual_review": True, "selected_files": len(selected_files)}
+                                )
+                                selected_actions.append(action_obj)
+                            console.print(f"[green]✅ {len(selected_files)} files queued for moving[/green]")
                             break
                         else:
                             console.print("[dim]Move action cancelled[/dim]")
@@ -621,7 +727,7 @@ def run_interactive_review(config: dict):
             algorithm = HashAlgorithm.DHASH
             log_action(f"Unknown algorithm '{algorithm_str}', using dhash")
         
-        duplicate_groups = find_duplicates(
+        duplicate_groups, hash_results = find_duplicates(
             config.get("dirs", []),
             config.get("types", []),
             config.get("exclude_dirs", []),
@@ -643,7 +749,7 @@ def run_interactive_review(config: dict):
     console.print(f"[bold magenta]Total duplicate files: {total_duplicates}[/bold magenta]")
     
     # Interactive review
-    actions, completed = interactive_duplicate_review(duplicate_groups, config)
+    actions, completed = interactive_duplicate_review(duplicate_groups, config, hash_results)
     
     if not completed:
         return
