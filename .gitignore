@@ -41,9 +41,11 @@ coverage.xml
 # Reports
 *.csv
 *.json
+*.conf
 
 # Misc
 *.bak
 *config.json
 *.tmp
 *.temp
+uv.lock
