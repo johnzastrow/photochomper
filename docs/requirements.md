@@ -291,3 +291,31 @@ The current implementation addresses approximately **80% of the original require
 ---
 
 *PhotoChomper - Organize your photo collection with confidence* 📸
+
+
+TODO as of August 3, 2025.
+
+  - XMP/IPTC Tags: Full keyword extraction, copyright info, creator details
+  - Video Metadata: Extract codec info, frame rates, creation software, embedded metadata
+  - Metadata Comparison: Use metadata for better duplicate ranking and identification
+  
+    Implement a new analysis module Advanced Image Quality Analysis to inject quality tags into photos
+
+  - OpenCV Integration: Implement sharpness detection (Laplacian variance)
+  - Resolution Quality: Assess image clarity and compression artifacts
+  - Quality Ranking: Use quality metrics for master file selection
+  
+   Performance Optimizations
+
+  - Large Collection Support: Optimize for 1M+ files
+  - Database Integration: SQLite for faster repeated scans and incremental updates
+  - Parallel Processing: Enhanced multi-processing for very large datasets
+  - Memory Management: Better garbage collection and memory profiling
+
+  Performance Optimizations
+
+  - Large Collection Support: Optimize for 1M+ files
+  - Database Integration: SQLite for faster repeated scans and incremental updates
+  - Parallel Processing: Enhanced multi-processing for very large datasets
+  - Memory Management: Better garbage collection and memory profiling
+  - Batch Operations: Enhanced batch processing with progress tracking
