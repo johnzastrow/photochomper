@@ -8,10 +8,11 @@ from rich.progress import Progress
 from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
-from src.config import save_config, log_action
+from src.config import save_config, log_action, save_list_config, load_list_config
 from src.scanner import find_duplicates, HashAlgorithm, get_image_metadata
 from src.report import export_report
 from src.actions import ActionExecutor, FileAction, ActionBatch, ActionType, create_delete_actions, create_move_actions
+from src.lister import run_comprehensive_listing
 
 console = Console()
 
@@ -22,6 +23,7 @@ def show_help():
     console.print("  --search       Run duplicate search")
     console.print("  --review       Interactive duplicate review with actions")
     console.print("  --summary      Generate markdown summary from existing reports")
+    console.print("  --list         List all files with metadata and export to CSV/SQLite")
     console.print("  --schedule N   Schedule search every N hours")
     console.print("  --help         Show this help message")
     console.print("\nExamples:")
@@ -763,3 +765,161 @@ def run_interactive_review(config: dict):
             console.print("[bold red]Some errors occurred during execution.[/bold red]")
     else:
         console.print("[yellow]No actions were selected.[/yellow]")
+
+def tui_list_setup():
+    """Main setup for --list command with config selection."""
+    from src.config import select_list_config_file
+    
+    console.print("[bold green]📋 PhotoChomper File Listing[/bold green]")
+    console.print("Generate comprehensive file listings with metadata export to CSV and SQLite")
+    
+    # Check for existing configs and let user choose
+    config_path, is_new_config = select_list_config_file()
+    
+    if is_new_config or config_path is None:
+        # Create new configuration
+        tui_list_setup_new()
+    else:
+        # Load and use existing configuration
+        list_config = load_list_config(config_path)
+        if not list_config:
+            console.print("[red]Error loading configuration. Creating new one...[/red]")
+            tui_list_setup_new()
+            return
+        
+        # Display loaded configuration
+        console.print(f"\n[bold cyan]📂 Loaded Configuration:[/bold cyan]")
+        console.print(f"• Search directory: [cyan]{list_config.get('search_dir', 'Not set')}[/cyan]")
+        console.print(f"• Output directory: [cyan]{list_config.get('output_dir', 'Not set')}[/cyan]")
+        excluded = list_config.get('excluded_extensions', [])
+        console.print(f"• Excluded extensions: [cyan]{', '.join(excluded) if excluded else 'none'}[/cyan]")
+        console.print(f"• Created: [dim]{list_config.get('created', 'Unknown')}[/dim]")
+        
+        # Confirm use of loaded config
+        use_config = console.input(f"\n[bold]Use this configuration? (y/n): [/bold]").strip().lower()
+        if use_config not in ('y', 'yes'):
+            console.print("[blue]Creating new configuration instead...[/blue]")
+            tui_list_setup_new()
+            return
+        
+        # Run with loaded configuration
+        console.print(f"\n[bold blue]Starting file listing with saved configuration...[/bold blue]")
+        run_comprehensive_listing(
+            list_config['search_dir'],
+            list_config['output_dir'],
+            list_config.get('excluded_extensions', [])
+        )
+
+def tui_list_setup_new():
+    """Interactive setup for comprehensive file listing command."""
+    console.print("[bold green]📋 PhotoChomper File Listing Setup[/bold green]")
+    console.print("Generate comprehensive file listings with metadata export to CSV and SQLite\n")
+    
+    # Starting search directory
+    console.print("[bold cyan]📁 Search Directory[/bold cyan]")
+    default_search_dir = str(Path.home() / "Pictures")
+    search_dir = console.input(f"Starting search directory\n[dim]Default: {default_search_dir}[/dim]\n> ").strip()
+    search_dir = search_dir if search_dir else default_search_dir
+    
+    # Output directory
+    console.print(f"\n[bold cyan]💾 Output Directory[/bold cyan]")
+    default_output_dir = search_dir
+    output_dir = console.input(f"Output directory for CSV and SQLite files\n[dim]Default: {default_output_dir} (same as search)[/dim]\n> ").strip()
+    output_dir = output_dir if output_dir else default_output_dir
+    
+    # Excluded file extensions
+    console.print(f"\n[bold cyan]🚫 Excluded File Extensions[/bold cyan]")
+    console.print("Enter file extensions to exclude (without dots, comma-separated)")
+    excluded_extensions = console.input(f"Excluded extensions (e.g., tmp,log,cache)\n[dim]Default: none (include all files)[/dim]\n> ").strip()
+    excluded_extensions = [ext.strip() for ext in excluded_extensions.split(",")] if excluded_extensions else []
+    
+    # Confirmation and field explanation
+    console.print(f"\n[bold cyan]📊 Output Fields[/bold cyan]")
+    console.print("The listing will include these fields:")
+    console.print("• [dim]DateTimeRun[/dim] - When this list was created")
+    console.print("• [dim]FileName[/dim] - Name of file")
+    console.print("• [dim]FilePath[/dim] - Full path to the file")
+    console.print("• [dim]SHA256[/dim] - SHA256 hash of file contents")
+    console.print("• [dim]DupeSHA256[/dim] - 'Yes' if SHA256 appears elsewhere in the list")
+    console.print("• [dim]CharLengthName[/dim] - Character length of filename")
+    console.print("• [dim]CharLengthPath[/dim] - Character length of full path")
+    console.print("• [dim]FileSizeBytes[/dim] - File size in bytes")
+    console.print("• [dim]FileCreatedDateTime[/dim] - File system creation time")
+    console.print("• [dim]FileModifiedDateTime[/dim] - File system modification time")
+    console.print("• [dim]ImageWidthPx[/dim] - Image width in pixels (for images)")
+    console.print("• [dim]ImageHeightPx[/dim] - Image height in pixels (for images)")
+    console.print("• [dim]FileType[/dim] - Detected file type")
+    console.print("• [dim]ImageCameraMake[/dim] - Camera manufacturer (from EXIF)")
+    console.print("• [dim]ImageCameraModel[/dim] - Camera model (from EXIF)")
+    console.print("• [dim]ImageDateTimeTaken[/dim] - Date/time photo was taken (from EXIF)")
+    console.print("• [dim]ImageQualityScore[/dim] - Calculated image quality score")
+    console.print("• [dim]ImageIPTCKeywords[/dim] - IPTC keywords metadata")
+    console.print("• [dim]ImageIPTCCaption[/dim] - IPTC caption metadata")
+    console.print("• [dim]ImageXMPKeywords[/dim] - XMP keywords metadata")
+    console.print("• [dim]ImageXMPTitle[/dim] - XMP title metadata")
+    console.print("• [dim]ImageLatitude[/dim] - GPS latitude (from EXIF)")
+    console.print("• [dim]ImageLongitude[/dim] - GPS longitude (from EXIF)")
+    
+    # Configuration saving option
+    console.print(f"\n[bold cyan]💾 Save Configuration[/bold cyan]")
+    save_config_choice = console.input("Save this configuration for future use? (y/n)\n[dim]Saved configs can be reused with --list command[/dim]\n> ").strip().lower()
+    
+    list_config = {
+        "search_dir": search_dir,
+        "output_dir": output_dir,
+        "excluded_extensions": excluded_extensions,
+        "created": datetime.now().isoformat(),
+        "description": f"List config: {search_dir} -> {output_dir}"
+    }
+    
+    config_saved = False
+    if save_config_choice in ('y', 'yes'):
+        console.print("Choose how to save the configuration:")
+        console.print("  1. Auto-generate filename with timestamp")
+        console.print("  2. Specify custom filename")
+        
+        save_choice = console.input("Choice (1 or 2): ").strip()
+        
+        if save_choice == "2":
+            custom_name = console.input("Config name (without extension): ").strip()
+            if custom_name:
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                config_path = f"photochomper_list_config_{custom_name}_{timestamp}.listconf"
+            else:
+                config_path = None
+        else:
+            config_path = None
+        
+        saved_path = save_list_config(list_config, config_path)
+        if saved_path:
+            console.print(f"[green]✅ Configuration saved: {saved_path}[/green]")
+            config_saved = True
+        else:
+            console.print("[red]❌ Failed to save configuration[/red]")
+    
+    # Final confirmation
+    console.print(f"\n[bold yellow]📋 Configuration Summary:[/bold yellow]")
+    console.print(f"• Search directory: [cyan]{search_dir}[/cyan]")
+    console.print(f"• Output directory: [cyan]{output_dir}[/cyan]")
+    console.print(f"• Excluded extensions: [cyan]{', '.join(excluded_extensions) if excluded_extensions else 'none'}[/cyan]")
+    console.print(f"• Include hidden files: [cyan]yes[/cyan]")
+    console.print(f"• Include all file types: [cyan]yes[/cyan]")
+    if config_saved:
+        console.print(f"• Configuration saved: [green]yes[/green]")
+    
+    confirm = console.input(f"\n[bold]Start file listing? (y/n): [/bold]").strip().lower()
+    if confirm not in ('y', 'yes'):
+        console.print("[yellow]File listing cancelled.[/yellow]")
+        return
+    
+    # Run the comprehensive listing
+    console.print(f"\n[bold blue]Starting comprehensive file listing...[/bold blue]")
+    run_comprehensive_listing(search_dir, output_dir, excluded_extensions)
+
+def run_list(config: dict):
+    """Run file listing using configuration (for compatibility if needed)."""
+    search_dir = config.get("search_dir", str(Path.home() / "Pictures"))
+    output_dir = config.get("output_dir", search_dir)
+    excluded_extensions = config.get("excluded_extensions", [])
+    
+    run_comprehensive_listing(search_dir, output_dir, excluded_extensions)

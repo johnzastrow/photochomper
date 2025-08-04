@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 from glob import glob
 from src.config import load_config, select_config_file
-from src.tui import tui_setup, run_search, schedule_search, show_help, run_interactive_review
+from src.tui import tui_setup, run_search, schedule_search, show_help, run_interactive_review, tui_list_setup, run_list
 from src.report import summarize_reports
 from rich.console import Console
 
@@ -98,11 +98,12 @@ def main():
     parser.add_argument("--review", action="store_true", help="Interactive duplicate review with actions")
     parser.add_argument("--summary", nargs="*", help="Generate markdown summary from existing reports (CSV/JSON files)")
     parser.add_argument("--schedule", type=int, help="Schedule search every N hours")
+    parser.add_argument("--list", action="store_true", help="List all files with comprehensive metadata and export to CSV/SQLite")
     parser.add_argument("--configdir", type=str, help="Specify config directory to use")
     parser.add_argument("--config", type=str, help="Specify config file to use")
     args = parser.parse_args()
 
-    if not (args.setup or args.search or args.review or args.summary is not None or args.schedule):
+    if not (args.setup or args.search or args.review or args.summary is not None or args.schedule or args.list):
         console.print("[bold yellow]No command specified. Use --help for options.[/bold yellow]")
         show_help()
         return
@@ -110,6 +111,10 @@ def main():
     # Handle commands that don't need config first
     if args.setup:
         tui_setup()
+        return
+
+    if args.list:
+        tui_list_setup()
         return
 
     config_dir = args.configdir if args.configdir else os.getcwd()
