@@ -47,6 +47,7 @@ class FileRecord:
     file_path: str
     sha256: str
     dupe_sha256: str
+    master: str
     char_length_name: int
     char_length_path: int
     file_size_bytes: int
@@ -307,6 +308,7 @@ def extract_comprehensive_metadata(filepath: str, run_datetime: str) -> FileReco
         file_path=filepath,
         sha256=sha256_hash,
         dupe_sha256="No",  # Will be updated after all files are processed
+        master="No",  # Will be updated after all files are processed
         char_length_name=char_length_name,
         char_length_path=char_length_path,
         file_size_bytes=file_size,
@@ -357,6 +359,7 @@ def create_sqlite_database(db_path: str) -> sqlite3.Connection:
             file_path TEXT NOT NULL,
             sha256 TEXT,
             dupe_sha256 TEXT,
+            master TEXT,
             char_length_name INTEGER,
             char_length_path INTEGER,
             file_size_bytes INTEGER,
@@ -393,15 +396,15 @@ def insert_record_to_sqlite(conn: sqlite3.Connection, record: FileRecord):
     cursor = conn.cursor()
     cursor.execute('''
         INSERT OR REPLACE INTO file_records 
-        (datetime_run, file_name, file_path, sha256, dupe_sha256, char_length_name, char_length_path,
+        (datetime_run, file_name, file_path, sha256, dupe_sha256, master, char_length_name, char_length_path,
          file_size_bytes, file_created_datetime, file_modified_datetime, image_width_px,
          image_height_px, file_type, image_camera_make, image_camera_model, image_datetime_taken,
          image_quality_score, image_iptc_keywords, image_iptc_caption, image_xmp_keywords,
          image_xmp_title, image_latitude, image_longitude)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         record.datetime_run, record.file_name, record.file_path, record.sha256, record.dupe_sha256,
-        record.char_length_name, record.char_length_path, record.file_size_bytes,
+        record.master, record.char_length_name, record.char_length_path, record.file_size_bytes,
         record.file_created_datetime, record.file_modified_datetime, record.image_width_px,
         record.image_height_px, record.file_type, record.image_camera_make, record.image_camera_model,
         record.image_datetime_taken, record.image_quality_score, record.image_iptc_keywords,
@@ -412,7 +415,7 @@ def insert_record_to_sqlite(conn: sqlite3.Connection, record: FileRecord):
 def write_csv_header(csv_writer):
     """Write CSV header row."""
     csv_writer.writerow([
-        'DateTimeRun', 'FileName', 'FilePath', 'SHA256', 'DupeSHA256', 'CharLengthName', 'CharLengthPath',
+        'DateTimeRun', 'FileName', 'FilePath', 'SHA256', 'DupeSHA256', 'Master', 'CharLengthName', 'CharLengthPath',
         'FileSizeBytes', 'FileCreatedDateTime', 'FileModifiedDateTime', 'ImageWidthPx', 'ImageHeightPx',
         'FileType', 'ImageCameraMake', 'ImageCameraModel', 'ImageDateTimeTaken', 'ImageQualityScore',
         'ImageIPTCKeywords', 'ImageIPTCCaption', 'ImageXMPKeywords', 'ImageXMPTitle',
@@ -423,7 +426,7 @@ def write_csv_record(csv_writer, record: FileRecord):
     """Write a file record to CSV."""
     csv_writer.writerow([
         record.datetime_run, record.file_name, record.file_path, record.sha256, record.dupe_sha256,
-        record.char_length_name, record.char_length_path, record.file_size_bytes,
+        record.master, record.char_length_name, record.char_length_path, record.file_size_bytes,
         record.file_created_datetime, record.file_modified_datetime, record.image_width_px,
         record.image_height_px, record.file_type, record.image_camera_make, record.image_camera_model,
         record.image_datetime_taken, record.image_quality_score, record.image_iptc_keywords,
@@ -445,6 +448,40 @@ def detect_duplicate_sha256(records: List[FileRecord]) -> None:
             record.dupe_sha256 = "Yes"
         else:
             record.dupe_sha256 = "No"
+
+def determine_master_files(records: List[FileRecord]) -> None:
+    """Determine master file for each SHA256 group based on sorting criteria."""
+    # Group records by SHA256 hash
+    sha256_groups = {}
+    for record in records:
+        if record.sha256:  # Only process records with valid SHA256
+            if record.sha256 not in sha256_groups:
+                sha256_groups[record.sha256] = []
+            sha256_groups[record.sha256].append(record)
+    
+    # For each group, determine the master file
+    for sha256_hash, group_records in sha256_groups.items():
+        if len(group_records) == 1:
+            # Single file - it's the master
+            group_records[0].master = "Yes"
+        else:
+            # Multiple files with same SHA256 - sort to find master
+            # Filter out files with "zip" in the name first
+            eligible_records = [r for r in group_records if "zip" not in r.file_name.lower()]
+            
+            # If all files have "zip" in name, use all files
+            if not eligible_records:
+                eligible_records = group_records
+            
+            # Sort by CharLengthName (ascending) then CharLengthPath (ascending)
+            eligible_records.sort(key=lambda r: (r.char_length_name, r.char_length_path))
+            
+            # Mark the first one as master, others as not master
+            for i, record in enumerate(group_records):
+                if record == eligible_records[0]:
+                    record.master = "Yes"
+                else:
+                    record.master = "No"
 
 def process_file_batch(file_paths: List[str], run_datetime: str) -> List[FileRecord]:
     """Process a batch of files and extract metadata."""
@@ -519,9 +556,15 @@ def run_comprehensive_listing(search_dir: str, output_dir: str, excluded_extensi
         console.print("[yellow]Detecting duplicate SHA256 values...[/yellow]")
         detect_duplicate_sha256(all_records)
         
-        # Count duplicates for reporting
+        # Determine master files for each SHA256 group
+        console.print("[yellow]Determining master files...[/yellow]")
+        determine_master_files(all_records)
+        
+        # Count duplicates and masters for reporting
         duplicate_count = sum(1 for record in all_records if record.dupe_sha256 == "Yes")
+        master_count = sum(1 for record in all_records if record.master == "Yes")
         console.print(f"[cyan]Found {duplicate_count} files with duplicate SHA256 values[/cyan]")
+        console.print(f"[cyan]Identified {master_count} master files[/cyan]")
         
         # Now write all records to outputs
         console.print("[yellow]Writing output files...[/yellow]")
