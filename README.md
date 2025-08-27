@@ -4,6 +4,13 @@ PhotoChomper is a Python-based tool for managing and organizing photo collection
 
 ![PhotoChomper Logo](docs/chomper.png)
 
+![PhotoChomper Logo](docs/main.png)
+![PhotoChomper Logo](docs/setup.png)
+![PhotoChomper Logo](docs/setup2.png)
+![PhotoChomper Logo](docs/listing.png)
+![PhotoChomper Logo](docs/listing_done.png)
+
+
 ---
 
 ## Table of Contents
@@ -598,5 +605,6 @@ MIT License - see LICENSE file for details.
 - [ffmpeg-python](https://github.com/kkroening/ffmpeg-python) - Video processing
 
 ---
+
 
 *PhotoChomper - Organize your photo collection with confidence* 📸
