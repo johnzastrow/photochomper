@@ -15,4 +15,6 @@ dependencies = [
     "psutil>=5.9.0",
     "textual>=0.41.0",
     "typer>=0.9.0",
+    "iptcinfo3>=2.1.4",
+    "python-xmp-toolkit>=2.0.2",
 ]

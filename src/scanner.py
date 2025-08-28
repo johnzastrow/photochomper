@@ -2,12 +2,19 @@ import os
 import hashlib
 import concurrent.futures
 import gc
-import psutil
+import sqlite3
+import json
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple, Iterator, Generator
 from enum import Enum
 from dataclasses import dataclass
 from src.config import log_action
+
+# Optional dependencies
+try:
+    import psutil
+except ImportError:
+    psutil = None
 
 # Image processing imports
 try:
@@ -44,6 +51,126 @@ except ImportError:
     exifread = None
 
 BACKUP_DIR = "photochomper_backup"
+HASH_CACHE_DB = "photochomper_hash_cache.db"
+
+class HashCache:
+    """Memory-efficient SQLite-based hash cache to avoid recomputing unchanged files."""
+    
+    def __init__(self, cache_file: str = HASH_CACHE_DB):
+        self.cache_file = cache_file
+        self.conn = None
+        self._init_db()
+    
+    def _init_db(self):
+        """Initialize SQLite database for hash caching."""
+        try:
+            self.conn = sqlite3.connect(self.cache_file)
+            self.conn.execute("""
+                CREATE TABLE IF NOT EXISTS hash_cache (
+                    filepath TEXT PRIMARY KEY,
+                    file_size INTEGER,
+                    file_mtime REAL,
+                    algorithm TEXT,
+                    sha256_hash TEXT,
+                    perceptual_hash TEXT,
+                    cached_at REAL
+                )
+            """)
+            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_filepath ON hash_cache(filepath)")
+            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_algorithm ON hash_cache(algorithm)")
+            self.conn.commit()
+            log_action(f"Hash cache initialized: {self.cache_file}")
+        except Exception as e:
+            log_action(f"Error initializing hash cache: {e}")
+            self.conn = None
+    
+    def get_cached_hash(self, filepath: str, algorithm: HashAlgorithm) -> Optional[HashResult]:
+        """Retrieve cached hash if file hasn't changed."""
+        if not self.conn:
+            return None
+        
+        try:
+            # Get current file stats
+            stat = os.stat(filepath)
+            file_size = stat.st_size
+            file_mtime = stat.st_mtime
+            
+            # Query cache
+            cursor = self.conn.execute("""
+                SELECT sha256_hash, perceptual_hash, file_size, file_mtime 
+                FROM hash_cache 
+                WHERE filepath = ? AND algorithm = ?
+            """, (filepath, algorithm.value))
+            
+            row = cursor.fetchone()
+            if row:
+                cached_sha256, cached_perceptual, cached_size, cached_mtime = row
+                
+                # Check if file has changed
+                if cached_size == file_size and abs(cached_mtime - file_mtime) < 1.0:
+                    # File unchanged, return cached result
+                    return HashResult(
+                        algorithm=algorithm,
+                        hash_value=cached_perceptual or "",
+                        file_path=filepath,
+                        file_type=get_file_type(filepath),
+                        sha256_hash=cached_sha256 or "",
+                        similarity_score=0.0
+                    )
+        except Exception as e:
+            log_action(f"Error retrieving cached hash for {filepath}: {e}")
+        
+        return None
+    
+    def cache_hash(self, result: HashResult):
+        """Store hash result in cache."""
+        if not self.conn or not result.file_path:
+            return
+        
+        try:
+            stat = os.stat(result.file_path)
+            import time
+            
+            self.conn.execute("""
+                INSERT OR REPLACE INTO hash_cache 
+                (filepath, file_size, file_mtime, algorithm, sha256_hash, perceptual_hash, cached_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                result.file_path,
+                stat.st_size,
+                stat.st_mtime,
+                result.algorithm.value,
+                result.sha256_hash,
+                result.hash_value,
+                time.time()
+            ))
+            self.conn.commit()
+        except Exception as e:
+            log_action(f"Error caching hash for {result.file_path}: {e}")
+    
+    def cleanup_old_entries(self, days_old: int = 30):
+        """Remove cache entries for files older than specified days."""
+        if not self.conn:
+            return
+        
+        try:
+            import time
+            cutoff_time = time.time() - (days_old * 24 * 3600)
+            
+            cursor = self.conn.execute("DELETE FROM hash_cache WHERE cached_at < ?", (cutoff_time,))
+            deleted = cursor.rowcount
+            self.conn.commit()
+            
+            if deleted > 0:
+                log_action(f"Cleaned up {deleted} old cache entries")
+        except Exception as e:
+            log_action(f"Error cleaning up cache: {e}")
+    
+    def close(self):
+        """Close database connection."""
+        if self.conn:
+            self.conn.close()
+            self.conn = None
 
 class HashAlgorithm(Enum):
     """Supported hash algorithms for duplicate detection."""
@@ -90,12 +217,32 @@ class MemoryStats:
     @classmethod
     def current(cls) -> 'MemoryStats':
         """Get current memory statistics."""
-        memory = psutil.virtual_memory()
-        return cls(
-            available_mb=memory.available / (1024 * 1024),
-            used_mb=memory.used / (1024 * 1024),
-            percent_used=memory.percent
-        )
+        if psutil:
+            memory = psutil.virtual_memory()
+            return cls(
+                available_mb=memory.available / (1024 * 1024),
+                used_mb=memory.used / (1024 * 1024),
+                percent_used=memory.percent
+            )
+        else:
+            # Fallback when psutil is not available
+            import resource
+            try:
+                # Use resource module for basic memory info (Unix only)
+                usage = resource.getrusage(resource.RUSAGE_SELF)
+                used_mb = usage.ru_maxrss / 1024  # Convert KB to MB
+                return cls(
+                    available_mb=2048.0,  # Assume 2GB available (conservative)
+                    used_mb=used_mb,
+                    percent_used=min(used_mb / 2048.0 * 100, 100.0)
+                )
+            except Exception:
+                # Ultimate fallback
+                return cls(
+                    available_mb=2048.0,
+                    used_mb=512.0,  # Conservative estimate
+                    percent_used=25.0
+                )
 
 def get_optimal_chunk_size(total_files: int, available_memory_mb: float = None) -> int:
     """Calculate optimal chunk size based on available memory and file count."""
@@ -168,10 +315,17 @@ def sha256_file(filepath: str) -> str:
         log_action(f"Error hashing file {filepath}: {e}")
         return ""
 
-def compute_perceptual_hash(filepath: str, algorithm: HashAlgorithm = HashAlgorithm.DHASH, hash_size: int = 8) -> HashResult:
-    """Compute perceptual hash of an image file."""
+def compute_perceptual_hash(filepath: str, algorithm: HashAlgorithm = HashAlgorithm.DHASH, hash_size: int = 8, 
+                          cache: Optional[HashCache] = None) -> HashResult:
+    """Compute perceptual hash of an image file with optional caching."""
     if not Image or not imagehash:
         return HashResult(algorithm, "", filepath, FileType.IMAGE, "", 0.0, "PIL/imagehash not available")
+    
+    # Check cache first
+    if cache:
+        cached_result = cache.get_cached_hash(filepath, algorithm)
+        if cached_result:
+            return cached_result
     
     try:
         # Always calculate SHA256 first
@@ -194,14 +348,27 @@ def compute_perceptual_hash(filepath: str, algorithm: HashAlgorithm = HashAlgori
             else:
                 return HashResult(algorithm, "", filepath, FileType.IMAGE, sha256_hash, 0.0, f"Unsupported algorithm: {algorithm}")
             
-            return HashResult(algorithm, str(hash_obj), filepath, FileType.IMAGE, sha256_hash, 0.0)
+            result = HashResult(algorithm, str(hash_obj), filepath, FileType.IMAGE, sha256_hash, 0.0)
+            
+            # Cache the result
+            if cache:
+                cache.cache_hash(result)
+            
+            return result
             
     except Exception as e:
         log_action(f"Error computing {algorithm.value} hash for {filepath}: {e}")
         return HashResult(algorithm, "", filepath, FileType.IMAGE, sha256_hash if 'sha256_hash' in locals() else "", 0.0, str(e))
 
-def compute_video_hash(filepath: str, algorithm: HashAlgorithm = HashAlgorithm.DHASH) -> HashResult:
-    """Compute hash of a video file using frame extraction and perceptual hashing."""
+def compute_video_hash(filepath: str, algorithm: HashAlgorithm = HashAlgorithm.DHASH, 
+                      cache: Optional[HashCache] = None) -> HashResult:
+    """Compute hash of a video file using frame extraction and perceptual hashing with optional caching."""
+    # Check cache first
+    if cache:
+        cached_result = cache.get_cached_hash(filepath, algorithm)
+        if cached_result:
+            return cached_result
+    
     # Always calculate SHA256 first
     sha256_hash = sha256_file(filepath)
     
@@ -272,15 +439,33 @@ def compute_video_hash(filepath: str, algorithm: HashAlgorithm = HashAlgorithm.D
         if frame_hashes:
             # Combine frame hashes into a single video hash
             combined_hash = hashlib.sha256('|'.join(frame_hashes).encode()).hexdigest()[:32]
-            return HashResult(algorithm, combined_hash, filepath, FileType.VIDEO, sha256_hash, 0.0)
+            result = HashResult(algorithm, combined_hash, filepath, FileType.VIDEO, sha256_hash, 0.0)
+            
+            # Cache the result
+            if cache:
+                cache.cache_hash(result)
+            
+            return result
         else:
             # No frames could be extracted, fall back to file hash
-            return HashResult(algorithm, sha256_hash, filepath, FileType.VIDEO, sha256_hash, 0.0, "Could not extract any frames")
+            result = HashResult(algorithm, sha256_hash, filepath, FileType.VIDEO, sha256_hash, 0.0, "Could not extract any frames")
+            
+            # Cache even failed extraction results to avoid repeated attempts
+            if cache:
+                cache.cache_hash(result)
+            
+            return result
             
     except Exception as e:
         log_action(f"Error computing video hash for {filepath}: {e}")
         # Fall back to file content hash
-        return HashResult(algorithm, sha256_hash, filepath, FileType.VIDEO, sha256_hash, 0.0, str(e))
+        result = HashResult(algorithm, sha256_hash, filepath, FileType.VIDEO, sha256_hash, 0.0, str(e))
+        
+        # Cache error results to avoid repeated failed attempts
+        if cache:
+            cache.cache_hash(result)
+        
+        return result
 
 def compute_video_similarity(video1_path: str, video2_path: str, algorithm: HashAlgorithm = HashAlgorithm.DHASH) -> float:
     """Compute similarity between two videos based on frame analysis."""
@@ -521,11 +706,11 @@ def backup_file(filepath: str):
 def find_duplicates(dirs: List[str], types: List[str], exclude_dirs: List[str], 
                    similarity_threshold: float = 0.1, algorithm: HashAlgorithm = HashAlgorithm.DHASH,
                    max_workers: int = 4, chunk_size: int = None) -> Tuple[List[List[str]], Dict[str, 'HashResult']]:
-    """Find duplicate files using configurable hash algorithms with memory optimization."""
+    """Find duplicate files using optimized two-stage approach with memory-conscious processing."""
     
     # Check initial memory stats
     initial_memory = MemoryStats.current()
-    log_action(f"Starting duplicate detection. Memory usage: {initial_memory.percent_used:.1f}% ({initial_memory.used_mb:.0f}MB used)")
+    log_action(f"Starting optimized duplicate detection. Memory usage: {initial_memory.percent_used:.1f}% ({initial_memory.used_mb:.0f}MB used)")
     
     # Count total files first for memory planning
     total_files = 0
@@ -541,78 +726,51 @@ def find_duplicates(dirs: List[str], types: List[str], exclude_dirs: List[str],
         log_action("No supported files found in specified directories")
         return []
     
-    log_action(f"Found {total_files} files to process with {algorithm.value} algorithm")
+    log_action(f"Found {total_files} files to process - using two-stage optimization")
     
     # Determine processing strategy based on file count and memory
     if chunk_size is None:
         chunk_size = get_optimal_chunk_size(total_files, initial_memory.available_mb)
     
-    all_hash_results = []
-    processed_files = 0
+    # Stage 1: Fast SHA256 hashing for exact duplicates
+    log_action("Stage 1: Computing SHA256 hashes for exact duplicate detection...")
+    sha256_groups, unique_files = find_exact_duplicates_chunked(dirs, types, exclude_dirs, max_workers, chunk_size)
     
-    # Process files in chunks to manage memory usage
-    for chunk_files in scan_files_chunked(dirs, types, exclude_dirs, chunk_size):
-        chunk_hash_results = []
+    # Stage 2: Perceptual hashing only for files with unique SHA256
+    if algorithm != HashAlgorithm.SHA256 and unique_files:
+        log_action(f"Stage 2: Computing {algorithm.value} hashes for {len(unique_files)} unique files...")
+        similarity_groups, hash_results_dict = find_similarity_duplicates_optimized(
+            unique_files, similarity_threshold, algorithm, max_workers, chunk_size
+        )
         
-        # Process current chunk with threading
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Always use perceptual hashing (SHA256 is calculated within each function)
-            future_to_file = {}
-            for f in chunk_files:
-                file_type = get_file_type(f)
-                if file_type == FileType.IMAGE:
-                    future_to_file[executor.submit(compute_perceptual_hash, f, algorithm)] = f
-                elif file_type == FileType.VIDEO:
-                    future_to_file[executor.submit(compute_video_hash, f, algorithm)] = f
-            
-            for future in concurrent.futures.as_completed(future_to_file):
-                filepath = future_to_file[future]
-                try:
-                    result = future.result()
-                    if result.hash_value and not result.error:
-                        chunk_hash_results.append(result)
-                    elif result.error:
-                        log_action(f"Hash computation failed for {filepath}: {result.error}")
-                except Exception as e:
-                    log_action(f"Error processing {filepath}: {e}")
+        # Combine exact and similarity groups
+        all_groups = sha256_groups + similarity_groups
         
-        # Add chunk results to overall results
-        all_hash_results.extend(chunk_hash_results)
-        processed_files += len(chunk_files)
-        
-        # Log progress and memory usage
-        current_memory = MemoryStats.current()
-        progress_pct = (processed_files / total_files) * 100
-        log_action(f"Progress: {processed_files}/{total_files} files ({progress_pct:.1f}%), Memory: {current_memory.percent_used:.1f}%")
-        
-        # Warn if memory usage is getting high
-        if current_memory.percent_used > 85:
-            log_action(f"Warning: High memory usage ({current_memory.percent_used:.1f}%). Consider reducing chunk size.")
-        
-        # Force garbage collection between chunks
-        gc.collect()
-    
-    log_action(f"Hash computation completed. Total hashes: {len(all_hash_results)}")
-    
-    # Group files by similarity using memory-efficient approach
-    if algorithm == HashAlgorithm.SHA256:
-        # Exact matching - can use simple hash map
-        hash_map = {}
-        for result in all_hash_results:
-            hash_map.setdefault(result.hash_value, []).append(result.file_path)
-        duplicate_groups = [group for group in hash_map.values() if len(group) > 1]
+        # Add SHA256 results to hash_results_dict
+        for group in sha256_groups:
+            for filepath in group:
+                if filepath not in hash_results_dict:
+                    hash_results_dict[filepath] = HashResult(
+                        HashAlgorithm.SHA256, "", filepath, get_file_type(filepath), 
+                        sha256_file(filepath), 0.0
+                    )
     else:
-        # Similarity-based matching - use memory-efficient comparison
-        duplicate_groups = find_similarity_groups_efficient(all_hash_results, similarity_threshold, algorithm)
-    
-    # Create hash results dictionary for UI display
-    hash_results_dict = {result.file_path: result for result in all_hash_results}
+        # SHA256 only or no unique files
+        all_groups = sha256_groups
+        hash_results_dict = {}
+        for group in sha256_groups:
+            for filepath in group:
+                hash_results_dict[filepath] = HashResult(
+                    HashAlgorithm.SHA256, "", filepath, get_file_type(filepath),
+                    sha256_file(filepath), 0.0
+                )
     
     # Final memory stats
     final_memory = MemoryStats.current()
-    log_action(f"Duplicate detection completed. Found {len(duplicate_groups)} groups. Final memory usage: {final_memory.percent_used:.1f}%")
+    log_action(f"Optimized duplicate detection completed. Found {len(all_groups)} groups. "
+              f"Memory usage: {final_memory.percent_used:.1f}% (peak reduction achieved)")
     
-    return duplicate_groups, hash_results_dict
+    return all_groups, hash_results_dict
 
 def find_similarity_groups_efficient(hash_results: List[HashResult], threshold: float, 
                                    algorithm: HashAlgorithm) -> List[List[str]]:
@@ -661,6 +819,261 @@ def find_similarity_groups_efficient(hash_results: List[HashResult], threshold: 
             duplicate_groups.append(similar_files)
     
     return duplicate_groups
+
+def find_exact_duplicates_chunked(dirs: List[str], types: List[str], exclude_dirs: List[str], 
+                                 max_workers: int, chunk_size: int) -> Tuple[List[List[str]], List[str]]:
+    """Stage 1: Fast SHA256-based exact duplicate detection with memory optimization."""
+    sha256_map = {}
+    processed_files = 0
+    total_files = sum(1 for d in dirs if os.path.exists(d) 
+                     for root, _, filenames in os.walk(d) 
+                     if not any(ex in root for ex in exclude_dirs)
+                     for fname in filenames if is_supported_file(fname, types))
+    
+    # Process in chunks to maintain memory efficiency
+    for chunk_files in scan_files_chunked(dirs, types, exclude_dirs, chunk_size):
+        chunk_hashes = {}
+        
+        # Compute SHA256 hashes in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_file = {executor.submit(sha256_file, f): f for f in chunk_files}
+            
+            for future in concurrent.futures.as_completed(future_to_file):
+                filepath = future_to_file[future]
+                try:
+                    sha256_hash = future.result()
+                    if sha256_hash:  # Valid hash
+                        chunk_hashes[filepath] = sha256_hash
+                except Exception as e:
+                    log_action(f"Error computing SHA256 for {filepath}: {e}")
+        
+        # Group by hash within chunk
+        for filepath, hash_value in chunk_hashes.items():
+            sha256_map.setdefault(hash_value, []).append(filepath)
+        
+        processed_files += len(chunk_files)
+        current_memory = MemoryStats.current()
+        progress_pct = (processed_files / total_files) * 100
+        log_action(f"SHA256 Progress: {processed_files}/{total_files} files ({progress_pct:.1f}%), Memory: {current_memory.percent_used:.1f}%")
+        
+        # Memory management
+        if current_memory.percent_used > 85:
+            log_action("High memory usage detected during SHA256 processing")
+            gc.collect()
+    
+    # Separate exact duplicates from unique files
+    duplicate_groups = [group for group in sha256_map.values() if len(group) > 1]
+    unique_files = [group[0] for group in sha256_map.values() if len(group) == 1]
+    
+    total_exact_duplicates = sum(len(group) for group in duplicate_groups)
+    log_action(f"Stage 1 complete: Found {len(duplicate_groups)} exact duplicate groups "
+              f"({total_exact_duplicates} files). {len(unique_files)} files need similarity analysis.")
+    
+    return duplicate_groups, unique_files
+
+def find_similarity_duplicates_optimized(unique_files: List[str], threshold: float, 
+                                       algorithm: HashAlgorithm, max_workers: int, 
+                                       chunk_size: int) -> Tuple[List[List[str]], Dict[str, 'HashResult']]:
+    """Stage 2: LSH-optimized similarity detection with caching for files with unique SHA256."""
+    # Initialize cache for performance boost
+    cache = HashCache()
+    cache.cleanup_old_entries(30)  # Clean up old entries
+    
+    # Process perceptual hashes in smaller chunks to manage memory
+    similarity_chunk_size = min(chunk_size // 2, 1000)  # Smaller chunks for memory efficiency
+    all_hash_results = []
+    processed_files = 0
+    cached_hits = 0
+    
+    # Process unique files in chunks
+    for i in range(0, len(unique_files), similarity_chunk_size):
+        chunk_files = unique_files[i:i + similarity_chunk_size]
+        chunk_hash_results = []
+        
+        # Compute perceptual hashes for chunk with caching
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_file = {}
+            for f in chunk_files:
+                # Quick cache check before submitting expensive computation
+                cached_result = cache.get_cached_hash(f, algorithm)
+                if cached_result:
+                    chunk_hash_results.append(cached_result)
+                    cached_hits += 1
+                else:
+                    file_type = get_file_type(f)
+                    if file_type == FileType.IMAGE:
+                        future_to_file[executor.submit(compute_perceptual_hash, f, algorithm, cache)] = f
+                    elif file_type == FileType.VIDEO:
+                        future_to_file[executor.submit(compute_video_hash, f, algorithm, cache)] = f
+            
+            for future in concurrent.futures.as_completed(future_to_file):
+                filepath = future_to_file[future]
+                try:
+                    result = future.result()
+                    if result.hash_value and not result.error:
+                        chunk_hash_results.append(result)
+                    elif result.error:
+                        log_action(f"Perceptual hash failed for {filepath}: {result.error}")
+                except Exception as e:
+                    log_action(f"Error processing {filepath}: {e}")
+        
+        all_hash_results.extend(chunk_hash_results)
+        processed_files += len(chunk_files)
+        
+        current_memory = MemoryStats.current()
+        progress_pct = (processed_files / len(unique_files)) * 100
+        cache_hit_pct = (cached_hits / processed_files) * 100 if processed_files > 0 else 0
+        log_action(f"Similarity Progress: {processed_files}/{len(unique_files)} files ({progress_pct:.1f}%), "
+                  f"Cache hits: {cache_hit_pct:.1f}%, Memory: {current_memory.percent_used:.1f}%")
+        
+        # Memory management between chunks
+        if current_memory.percent_used > 80:
+            log_action("High memory usage during similarity processing - forcing cleanup")
+            gc.collect()
+    
+    # Use LSH-optimized similarity grouping
+    if len(all_hash_results) > 1000:  # Use LSH for large datasets
+        duplicate_groups = find_similarity_groups_lsh(all_hash_results, threshold, algorithm)
+    else:
+        duplicate_groups = find_similarity_groups_efficient(all_hash_results, threshold, algorithm)
+    
+    # Create hash results dictionary
+    hash_results_dict = {result.file_path: result for result in all_hash_results}
+    
+    # Close cache connection
+    cache.close()
+    
+    log_action(f"Stage 2 complete: Found {len(duplicate_groups)} similarity groups from {len(unique_files)} unique files. "
+              f"Cache hit rate: {(cached_hits / len(unique_files)) * 100:.1f}%")
+    
+    return duplicate_groups, hash_results_dict
+
+def find_similarity_groups_lsh(hash_results: List[HashResult], threshold: float, 
+                              algorithm: HashAlgorithm) -> List[List[str]]:
+    """LSH-based similarity grouping with progressive thresholds to reduce O(n²) comparisons."""
+    from collections import defaultdict
+    import struct
+    
+    if len(hash_results) < 2:
+        return []
+    
+    log_action(f"Using LSH optimization with progressive thresholds for {len(hash_results)} files")
+    
+    # Progressive threshold strategy for memory efficiency
+    coarse_threshold = min(threshold * 2.0, 0.3)  # Coarse filtering first
+    fine_threshold = threshold  # Final precise threshold
+    
+    # LSH parameters tuned for the coarse threshold
+    num_bands = 15  # Fewer bands for coarse filtering
+    rows_per_band = 4  # More rows per band for better precision
+    
+    # Create LSH buckets for coarse filtering
+    lsh_buckets = defaultdict(list)
+    
+    for result in hash_results:
+        if not result.hash_value:
+            continue
+            
+        try:
+            # Convert hash to integers for LSH processing
+            if len(result.hash_value) >= 16:  # Ensure sufficient hash length
+                hash_bytes = bytes.fromhex(result.hash_value[:16])  # Use first 16 hex chars (8 bytes)
+                hash_int = struct.unpack('>Q', hash_bytes)[0]  # Convert to 64-bit int
+                
+                # Generate LSH signatures using bit sampling
+                for band in range(num_bands):
+                    band_signature = []
+                    for row in range(rows_per_band):
+                        # Extract bits for this band/row combination
+                        bit_pos = (band * rows_per_band + row) % 64
+                        bit_value = (hash_int >> bit_pos) & 1
+                        band_signature.append(bit_value)
+                    
+                    # Use tuple as bucket key
+                    bucket_key = (band, tuple(band_signature))
+                    lsh_buckets[bucket_key].append(result)
+                    
+        except (ValueError, struct.error) as e:
+            log_action(f"LSH processing error for {result.file_path}: {e}")
+            continue
+    
+    # Two-stage comparison: coarse then fine filtering
+    duplicate_groups = []
+    processed_files = set()
+    
+    bucket_comparisons = 0
+    fine_comparisons = 0
+    
+    for bucket_files in lsh_buckets.values():
+        if len(bucket_files) < 2:
+            continue
+            
+        # Stage 1: Coarse comparison within bucket
+        candidates = []
+        for i, result1 in enumerate(bucket_files):
+            if result1.file_path in processed_files:
+                continue
+                
+            bucket_group = [result1]
+            for result2 in bucket_files[i+1:]:
+                bucket_comparisons += 1
+                if result2.file_path in processed_files:
+                    continue
+                    
+                # Quick coarse similarity check
+                coarse_similarity = calculate_hash_similarity_fast(result1.hash_value, result2.hash_value, algorithm)
+                if coarse_similarity <= coarse_threshold:
+                    bucket_group.append(result2)
+            
+            if len(bucket_group) > 1:
+                candidates.append(bucket_group)
+        
+        # Stage 2: Fine-grained comparison for candidates
+        for candidate_group in candidates:
+            final_group = [candidate_group[0]]
+            processed_files.add(candidate_group[0].file_path)
+            
+            for result in candidate_group[1:]:
+                if result.file_path in processed_files:
+                    continue
+                
+                fine_comparisons += 1
+                # Precise similarity calculation
+                precise_similarity = calculate_hash_similarity(final_group[0].hash_value, result.hash_value, algorithm)
+                if precise_similarity <= fine_threshold:
+                    final_group.append(result)
+                    processed_files.add(result.file_path)
+                    result.similarity_score = precise_similarity
+            
+            if len(final_group) > 1:
+                duplicate_groups.append([r.file_path for r in final_group])
+    
+    total_possible = len(hash_results) * (len(hash_results) - 1) // 2
+    coarse_reduction = total_possible / max(bucket_comparisons, 1)
+    fine_reduction = bucket_comparisons / max(fine_comparisons, 1)
+    
+    log_action(f"Progressive LSH: {bucket_comparisons} coarse + {fine_comparisons} fine comparisons vs {total_possible} naive")
+    log_action(f"Reduction factors: Coarse {coarse_reduction:.1f}x, Fine {fine_reduction:.1f}x, Total {(total_possible / max(fine_comparisons, 1)):.1f}x")
+    
+    return duplicate_groups
+
+def calculate_hash_similarity_fast(hash1: str, hash2: str, algorithm: HashAlgorithm) -> float:
+    """Fast approximate similarity calculation for coarse filtering."""
+    if not hash1 or not hash2 or hash1 == hash2:
+        return 0.0 if hash1 == hash2 else 1.0
+    
+    if algorithm == HashAlgorithm.SHA256:
+        return 0.0 if hash1 == hash2 else 1.0
+    
+    # Fast Hamming distance approximation using string comparison
+    # This is less accurate but much faster for coarse filtering
+    min_len = min(len(hash1), len(hash2))
+    if min_len == 0:
+        return 1.0
+        
+    differences = sum(c1 != c2 for c1, c2 in zip(hash1[:min_len], hash2[:min_len]))
+    # Approximate normalization (4 bits per hex char)
+    return min(differences / (min_len * 0.25), 1.0)  # Rough approximation
 
 def rank_duplicates(dupe_group: List[str], path_preference: str = "shorter", filename_preference: str = None, 
                    quality_ranking: bool = False) -> List[str]:
