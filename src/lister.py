@@ -4,6 +4,7 @@ import csv
 import hashlib
 import time
 import concurrent.futures
+import platform
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Iterator
@@ -27,8 +28,12 @@ except ImportError:
     iptcinfo3 = None
 
 try:
-    import libxmp
-    from libxmp import XMPFiles, XMPMeta
+    # Skip XMP library on Windows due to Exempi dependency issues
+    if platform.system() == "Windows":
+        libxmp = None
+    else:
+        import libxmp
+        from libxmp import XMPFiles, XMPMeta
 except ImportError:
     libxmp = None
 
