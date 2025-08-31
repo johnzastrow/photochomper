@@ -96,7 +96,9 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
 - **Action previews**: See exactly what will happen before confirmation
 
 ### **📊 Advanced Reporting**
-- **Multiple formats**: CSV, JSON, and Markdown summaries
+- **Multiple formats**: CSV, JSON, SQLite database, and Markdown summaries
+- **SQLite database**: Indexed tables with pre-built analysis views for advanced SQL queries
+- **Master column**: CSV and database include "Yes" column identifying master photos
 - **Comprehensive analysis**: File counts, search parameters, detailed explanations  
 - **Performance metrics**: Cache hit rates, LSH reduction factors, processing times
 - **Auto-discovery**: Finds existing reports automatically
@@ -191,7 +193,7 @@ uv pip install Pillow imagehash opencv-python ffmpeg-python iptcinfo3 python-xmp
 
 **Metadata Extraction:**
 - `iptcinfo3`: IPTC metadata from images (keywords, captions, copyright)  
-- `python-xmp-toolkit`: XMP metadata support
+- `python-xmp-toolkit`: XMP metadata support (requires `libexempi9` on Linux: `sudo apt install libexempi9`)
 - `exifread`: Enhanced EXIF data reading (GPS, camera settings)
 
 ### **Graceful Fallbacks**
@@ -398,7 +400,8 @@ Performs comprehensive duplicate detection:
 - Scans configured directories
 - Calculates SHA256 and similarity hashes
 - Groups similar/identical files
-- Exports results to CSV and JSON
+- Exports results to CSV, JSON, and SQLite database
+- Creates indexed database with analysis views for advanced queries
 
 ### Interactive Duplicate Review
 
@@ -523,8 +526,9 @@ PhotoChomper supports multiple perceptual hashing algorithms:
 ## Reporting and Analysis
 
 ### **Output Formats**
-- **CSV**: Detailed tabular data for analysis
+- **CSV**: Detailed tabular data with Master column showing "Yes" for master photos
 - **JSON**: Structured data for programmatic use
+- **SQLite Database**: Relational database with indexed tables and analysis views
 - **Markdown**: Human-readable summaries with analysis
 
 ### **Report Contents**
@@ -534,9 +538,60 @@ PhotoChomper supports multiple perceptual hashing algorithms:
 - **Search parameters**: Configuration settings used
 - **Execution statistics**: Processing time, file counts
 
+### **SQLite Database Analysis**
+
+The `--search` command automatically generates a SQLite database (`duplicates_report.db`) with powerful analysis capabilities:
+
+**Database Structure:**
+```
+duplicates table:
+├── id (Primary Key)
+├── group_id (Duplicate group identifier)  
+├── master ("Yes" for master photos, empty for duplicates)
+├── file (Full file path)
+├── name, path, size, dates
+├── width, height, file_type
+├── camera_make, camera_model, date_taken
+├── similarity_score, match_reasons
+└── All metadata fields...
+```
+
+**Pre-built Analysis Views:**
+- `summary_stats`: Total groups, files, masters, duplicates, sizes
+- `groups_by_size`: Largest duplicate groups first  
+- `masters_summary`: Each master with duplicate count and space savings
+- `file_type_analysis`: Statistics by file type (JPEG, PNG, etc.)
+- `camera_analysis`: Duplicates by camera make/model
+- `size_analysis`: Files by size ranges with savings potential
+- `match_reasons_analysis`: Why files were considered duplicates
+- `directory_analysis`: Statistics by directory path
+
+**Example SQL Queries:**
+```sql
+-- Get overall summary
+SELECT * FROM summary_stats;
+
+-- Find largest duplicate groups  
+SELECT * FROM groups_by_size LIMIT 10;
+
+-- Masters with most duplicates
+SELECT master_name, duplicate_count, duplicates_total_size 
+FROM masters_summary ORDER BY duplicate_count DESC;
+
+-- Potential space savings by directory
+SELECT path, duplicate_count, potential_savings 
+FROM directory_analysis WHERE duplicate_count > 0 
+ORDER BY potential_savings DESC;
+
+-- All duplicates from Canon cameras
+SELECT group_id, file, camera_model, similarity_score 
+FROM duplicates WHERE camera_make = 'Canon' AND master = '';
+```
+
 ### **Auto-Discovery**
 Reports are automatically named with "report" in the filename to enable auto-discovery:
 - `duplicates_report_20231225_143022.csv`
+- `duplicates_report_20231225_143022.db` 
 - `my_photos_report.json`
 - `scan_report_final.csv`
 

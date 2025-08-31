@@ -76,6 +76,7 @@ PhotoChomper automatically adapts when optional dependencies are missing:
 python main.py --setup
 
 # Run duplicate search using existing config
+# Generates CSV, JSON, and SQLite database outputs
 python main.py --search
 
 # Interactive duplicate review with file actions
@@ -225,9 +226,50 @@ PhotoChomper v3.0 introduces revolutionary performance optimizations specificall
 ### Reporting and Analysis
 
 #### Output Formats
-- **CSV**: Detailed tabular data with all metadata
+- **CSV**: Detailed tabular data with all metadata, includes Master column showing "Yes" for master photos
 - **JSON**: Structured data for programmatic use
+- **SQLite**: Relational database with indexed tables and pre-built analysis views for advanced queries
 - **Markdown**: Human-readable summaries with analysis and explanations
+
+#### SQLite Database Features
+The `--search` command automatically generates a SQLite database (`duplicates_report.db`) alongside CSV and JSON outputs, providing powerful SQL-based analysis capabilities:
+
+**Main Table Structure:**
+- Primary key (`id`) for unique record identification
+- Master column with "Yes" for master photos, empty for duplicates
+- All metadata fields from CSV export (file paths, sizes, dates, camera info, etc.)
+- Indexed columns for fast querying (group_id, master, file, size, camera_make, file_type)
+
+**Pre-built Analysis Views:**
+- `summary_stats`: Overall statistics (groups, files, masters, duplicates, sizes, file types)
+- `groups_by_size`: Duplicate groups ordered by size and file count
+- `masters_summary`: Each master with duplicate count and space savings potential
+- `file_type_analysis`: Breakdown by file type (JPEG, PNG, etc.)
+- `camera_analysis`: Statistics by camera make/model
+- `size_analysis`: Files categorized by size ranges with potential savings
+- `match_reasons_analysis`: Why files were considered duplicates
+- `directory_analysis`: Statistics by directory path
+
+**Example SQL Queries:**
+```sql
+-- Get overall summary
+SELECT * FROM summary_stats;
+
+-- Find largest duplicate groups
+SELECT * FROM groups_by_size LIMIT 10;
+
+-- See masters with most duplicates
+SELECT master_name, duplicate_count, duplicates_total_size 
+FROM masters_summary ORDER BY duplicate_count DESC;
+
+-- Analyze potential space savings by directory
+SELECT path, duplicate_count, potential_savings 
+FROM directory_analysis WHERE duplicate_count > 0 
+ORDER BY potential_savings DESC;
+
+-- Find all Canon camera duplicates
+SELECT * FROM duplicates WHERE camera_make = 'Canon';
+```
 
 #### Advanced Summary Features
 - Executive summary with key statistics
