@@ -241,8 +241,8 @@ def run_search(config: dict, config_path: str = None):
         progress.update(task, completed=100)
     exec_time = time.time() - start_time
     console.print(f"[bold yellow]{len(dupes)} duplicate groups found.[/bold yellow]")
-    export_report(dupes, formats=["csv", "json"], config_path=config.get("config_file", config_path), exec_time=exec_time)
-    console.print("[bold green]Reports exported to duplicates_report.csv and duplicates_report.json[/bold green]")
+    export_report(dupes, formats=["csv", "json", "sqlite"], config_path=config.get("config_file", config_path), exec_time=exec_time)
+    console.print("[bold green]Reports exported to duplicates_report.csv, duplicates_report.json, and duplicates_report.db[/bold green]")
     log_action(
         f"Search completed: {len(dupes)} groups found | Config: {config.get('config_file', config_path) or 'default'} | Execution time: {exec_time:.2f}s"
     )
