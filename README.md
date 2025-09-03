@@ -2,7 +2,7 @@
 
 PhotoChomper is a high-performance Python tool for managing massive photo collections (200K+ files) by identifying duplicate images and videos with revolutionary speed optimizations. Version 3.1+ delivers 100-1000x performance improvements through advanced algorithmic innovations, enhanced progress tracking, and intelligent memory management, making it possible to process massive collections in minutes with real-time feedback.
 
-## 🚀 Version 3.1+ Enhanced Performance & User Experience
+##  Version 3.1+ Enhanced Performance & User Experience
 
 - **Enhanced Progress Tracking** - Real-time status updates with time estimation and visual indicators
 - **Intelligent Chunking** - Memory-based optimization with automatic recommendations
@@ -10,7 +10,7 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
 - **Stable Memory Usage** - Never exceeds 2GB regardless of collection size with real-time monitoring
 - **Skip SHA256 Option** - Configurable processing stages for specialized workflows
 
-## 🚀 Version 3.0 Performance Revolution
+##  Version 3.0 Performance Revolution
 
 - **Stable Memory Usage** - Never exceeds 2GB regardless of collection size  
 - **LSH Optimization** - Reduces billions of comparisons to millions
@@ -31,14 +31,14 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
 ## Table of Contents
 
 - [PhotoChomper](#photochomper)
-  - [🚀 Version 3.1+ Enhanced Performance & User Experience](#-version-31-enhanced-performance--user-experience)
-  - [🚀 Version 3.0 Performance Revolution](#-version-30-performance-revolution)
+  - [ Version 3.1+ Enhanced Performance & User Experience](#-version-31-enhanced-performance--user-experience)
+  - [ Version 3.0 Performance Revolution](#-version-30-performance-revolution)
   - [Table of Contents](#table-of-contents)
   - [Key Features](#key-features)
-    - [**🔍 Revolutionary Duplicate Detection (v3.0)**](#-revolutionary-duplicate-detection-v30)
-    - [**🎯 Interactive Review System**](#-interactive-review-system)
-    - [**📊 Advanced Reporting**](#-advanced-reporting)
-    - [**⚙️ Smart Configuration & Scaling**](#️-smart-configuration--scaling)
+    - [** Revolutionary Duplicate Detection (v3.0)**](#-revolutionary-duplicate-detection-v30)
+    - [** Interactive Review System**](#-interactive-review-system)
+    - [** Advanced Reporting**](#-advanced-reporting)
+    - [** Smart Configuration & Scaling**](#️-smart-configuration--scaling)
   - [Recent Updates](#recent-updates)
     - [**Version 3.1.0** - Enhanced Progress Tracking & User Experience](#version-310---enhanced-progress-tracking--user-experience)
     - [**Version 3.0** - Performance Revolution](#version-30---performance-revolution)
@@ -101,7 +101,7 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
 
 ## Key Features
 
-### **🔍 Revolutionary Duplicate Detection (v3.0)**
+### ** Revolutionary Duplicate Detection (v3.0)**
 - **Two-Stage Architecture**: Fast SHA256 exact duplicates → selective perceptual analysis
 - **LSH Optimization**: Locality-Sensitive Hashing reduces O(n²) to ~O(n log n)
 - **Progressive Thresholds**: Coarse filtering → fine analysis (50% reduction in calculations)
@@ -109,14 +109,14 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
 - **Memory-Conscious**: Stable usage <2GB for any collection size
 - **Performance**: 555x speedup for 200K files (hours → minutes)
 
-### **🎯 Interactive Review System** 
+### ** Interactive Review System** 
 - **Rich visual interface**: Color-coded display with status indicators
 - **Selective file actions**: Choose specific files by row numbers (e.g., "2,3,5")
 - **Comprehensive metadata**: SHA256 hashes, similarity scores, file details
 - **Smart directory handling**: Remembers move directories across sessions
 - **Action previews**: See exactly what will happen before confirmation
 
-### **📊 Advanced Reporting**
+### ** Advanced Reporting**
 - **Multiple formats**: CSV, JSON, SQLite database, and Markdown summaries
 - **SQLite database**: Indexed tables with pre-built analysis views for advanced SQL queries
 - **Master column**: CSV and database include "Yes" column identifying master photos
@@ -125,7 +125,7 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
 - **Auto-discovery**: Finds existing reports automatically
 - **Executive summaries**: Key statistics and optimization insights
 
-### **⚙️ Smart Configuration & Scaling**
+### ** Smart Configuration & Scaling**
 - **Guided setup**: Interactive TUI with performance optimization recommendations
 - **Adaptive processing**: Dynamic chunk sizing based on available memory
 - **Multi-threading**: Optimized worker threads with I/O separation
@@ -136,7 +136,7 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
 
 ## Recent Updates
 
-### **Version 3.1.0** - Enhanced Progress Tracking & User Experience 🎯
+### **Version 3.1.0** - Enhanced Progress Tracking & User Experience 
 **Advanced progress monitoring and intelligent memory optimization:**
 - ✅ **Real-Time Progress Tracking**: Visual indicators (📁🔗🎯✅) for each processing phase
 - ✅ **Time Estimation**: ETA calculations that improve accuracy as processing continues
@@ -147,7 +147,7 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
 - ✅ **Version Tracking**: Comprehensive version management with detailed history
 - ✅ **Phase-Specific Timing**: Separate time tracking for file discovery, SHA256, and similarity stages
 
-### **Version 3.0** - Performance Revolution 🚀
+### **Version 3.0** - Performance Revolution 
 **Breakthrough optimizations for massive photo collections (200K+ files):**
 - ✅ **Two-Stage Detection**: SHA256 exact duplicates → perceptual similarity for unique files only
 - ✅ **LSH Optimization**: Locality-Sensitive Hashing reduces 20B to 36M comparisons (555x speedup)
@@ -244,10 +244,10 @@ PhotoChomper automatically adapts when optional dependencies are missing:
 ### **Performance Recommendations**
 
 For **massive collections (100K+ files)**, use the **Standard Setup** to get:
-- ✅ Full v3.0 optimization benefits (555x speedup)
-- ✅ Memory monitoring and adaptive processing
-- ✅ SQLite hash caching for repeated runs
-- ✅ LSH-based comparison optimization
+-  Full v3.0 optimization benefits (555x speedup)
+-  Memory monitoring and adaptive processing
+-  SQLite hash caching for repeated runs
+-  LSH-based comparison optimization
 
 ### **Building Single Executable for Windows with UV + PyInstaller**
 
@@ -304,10 +304,10 @@ pyinstaller --onefile --name="PhotoChomper" --add-data "src;src" --collect-all="
 - Fully portable - copy and run anywhere on Windows
 
 **UV-Specific Build Benefits:**
-- ✅ **Faster dependency resolution**: UV resolves dependencies 10-100x faster than pip
-- ✅ **Reproducible builds**: UV.lock file ensures consistent dependency versions
-- ✅ **Clean virtual environments**: UV creates isolated environments automatically
-- ✅ **Better cache management**: UV caches packages globally for faster subsequent builds
+-  **Faster dependency resolution**: UV resolves dependencies 10-100x faster than pip
+-  **Reproducible builds**: UV.lock file ensures consistent dependency versions
+-  **Clean virtual environments**: UV creates isolated environments automatically
+-  **Better cache management**: UV caches packages globally for faster subsequent builds
 
 **Advanced Build Options with UV:**
 ```bash
@@ -483,14 +483,14 @@ python main.py --setup
 ```
 
 The **enhanced setup wizard** guides you through:
-- **📁 Directories to scan** (with sensible defaults)
-- **📄 File types** to include (images and videos)
-- **🎯 Similarity detection** algorithm and threshold
-- **⚡ Performance optimization** (Skip SHA256 option with clear explanations)
-- **💾 Memory optimization** (System analysis with Conservative/Balanced/Performance recommendations)
-- **📂 Move directory** for duplicate management
-- **⚙️ Threading settings** (optimized for your CPU)
-- **📋 Output preferences** (reports, naming conventions)
+- ** Directories to scan** (with sensible defaults)
+- ** File types** to include (images and videos)
+- ** Similarity detection** algorithm and threshold
+- ** Performance optimization** (Skip SHA256 option with clear explanations)
+- ** Memory optimization** (System analysis with Conservative/Balanced/Performance recommendations)
+- ** Move directory** for duplicate management
+- ** Threading settings** (optimized for your CPU)
+- ** Output preferences** (reports, naming conventions)
 
 ### Run Duplicate Search
 
@@ -499,13 +499,13 @@ python main.py --search
 ```
 
 Performs comprehensive duplicate detection **with enhanced progress tracking**:
-- **📁 File Discovery**: Real-time file scanning with progress indicators
-- **🔗 SHA256 Processing**: Fast exact duplicate detection with time estimation
-- **🎯 Similarity Analysis**: Perceptual hashing with ETA updates and memory monitoring
-- **📊 Progress Feedback**: Visual phase indicators, elapsed time, and completion estimates
-- **💾 Memory Monitoring**: Real-time memory usage with color-coded warnings
-- **📄 Report Generation**: Exports results to CSV, JSON, and SQLite database
-- **📈 Performance Analytics**: Cache hit rates, processing speed, and optimization metrics
+- ** File Discovery**: Real-time file scanning with progress indicators
+- ** SHA256 Processing**: Fast exact duplicate detection with time estimation
+- ** Similarity Analysis**: Perceptual hashing with ETA updates and memory monitoring
+- ** Progress Feedback**: Visual phase indicators, elapsed time, and completion estimates
+- ** Memory Monitoring**: Real-time memory usage with color-coded warnings
+- ** Report Generation**: Exports results to CSV, JSON, and SQLite database
+- ** Performance Analytics**: Cache hit rates, processing speed, and optimization metrics
 
 ### Interactive Duplicate Review
 
