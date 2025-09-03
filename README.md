@@ -648,6 +648,161 @@ PhotoChomper v3.0 automatically optimizes for massive collections:
 - **Adaptive Memory Management**: Dynamic chunk sizing based on available RAM
 - **SQLite Caching**: Persistent hash storage across runs
 
+#### **Understanding Chunked Processing**
+
+PhotoChomper uses **intelligent chunking** to process large photo collections efficiently without overwhelming system memory. Think of chunking as processing your photos in "batches" rather than loading everything into memory at once.
+
+**What are Chunks?**
+A chunk is a subset of files processed together before moving to the next batch. Instead of loading 200,000 files into memory simultaneously, PhotoChomper might process them in chunks of 1,500 files at a time.
+
+**Why Chunking Matters:**
+```
+Without Chunking (❌):
+200,000 files × 10KB metadata each = 2GB+ memory usage
+↓
+System becomes slow, may crash with insufficient RAM
+
+With Chunking (✅):
+1,500 files × 10KB metadata = 15MB per chunk
+133 chunks processed sequentially = stable <100MB memory
+```
+
+**Automatic Chunk Size Selection:**
+
+PhotoChomper automatically chooses optimal chunk sizes based on your system:
+
+| System RAM | Memory Factor | Max Chunk Size | Example Collection |
+|------------|---------------|----------------|-------------------|
+| **>8GB RAM** | 35% usage | 2,000 files | 200K photos → 100 chunks |
+| **>4GB RAM** | 30% usage | 1,500 files | 150K photos → 100 chunks |
+| **>2GB RAM** | 25% usage | 1,000 files | 100K photos → 100 chunks |
+| **<2GB RAM** | 20% usage | 500 files | 50K photos → 100 chunks |
+
+**Real-World Examples:**
+
+**Example 1: Large Wedding Photography Collection**
+```
+Collection: 150,000 wedding photos (500GB)
+System: 8GB RAM laptop
+Automatic selection: 1,800 files per chunk
+Result: 83 chunks, 45MB memory per chunk, 15-minute processing
+```
+
+**Example 2: Family Archive on Budget System**
+```
+Collection: 25,000 family photos (100GB)  
+System: 4GB RAM desktop
+Automatic selection: 1,200 files per chunk
+Result: 21 chunks, 12MB memory per chunk, 3-minute processing
+```
+
+**Example 3: Professional Studio Collection**
+```
+Collection: 500,000 commercial photos (2TB)
+System: 32GB RAM workstation  
+Automatic selection: 2,000 files per chunk
+Result: 250 chunks, 20MB memory per chunk, 45-minute processing
+```
+
+**Configuring Chunking:**
+
+During setup (`python main.py --setup`), you can choose:
+
+**1. Automatic Mode (Recommended):**
+```
+Memory optimization mode: auto
+✅ PhotoChomper analyzes your system and collection size
+✅ Automatically adjusts chunk size for optimal performance
+✅ Handles memory spikes and system variations
+```
+
+**2. Custom Mode (Advanced Users):**
+```
+Memory optimization mode: custom
+Chunk size (files per batch): 1500
+
+Examples by use case:
+• Conservative (slow system): 500-800 files
+• Balanced (most systems): 1000-1500 files  
+• Performance (fast system): 1500-2500 files
+```
+
+**3. Disabled Mode (High-Risk):**
+```
+Memory optimization mode: disable
+⚠️ Warning: Processes all files simultaneously
+⚠️ Only recommended for small collections (<10K files)
+⚠️ May cause system instability with large collections
+```
+
+**Chunking Progress Display:**
+
+During processing, you'll see chunk progress:
+
+```
+🔗 Stage 1/2: SHA256 Exact Duplicates
+   Progress: 15,000/150,000 files (10.0%) | Elapsed: 2m 15s (45s this phase) | ETA: 18m 30s | Memory: 15.2%
+
+Memory optimization: Processing 150,000 files in 83 chunks of 1,800
+SHA256 Progress: 15,000/150,000 files (10.0%), Memory: 15.2%
+```
+
+**Advanced Chunking Scenarios:**
+
+**Network Storage Collections:**
+```bash
+# Smaller chunks reduce network I/O bursts
+chunk_size: 800  # Conservative for network-attached storage
+benefit: Reduces network congestion, more stable processing
+```
+
+**SSD vs HDD Storage:**
+```bash
+# SSD: Larger chunks (faster I/O)
+chunk_size: 2000+ files
+
+# HDD: Smaller chunks (avoid I/O bottlenecks)  
+chunk_size: 1000 files
+```
+
+**Memory-Constrained Systems:**
+```bash
+# Force smaller chunks on low-memory systems
+chunk_size: 500  # Ensures <50MB memory usage per chunk
+result: Slower but stable processing on 2GB systems
+```
+
+**When Chunking Becomes Critical:**
+
+| Collection Size | Without Chunking | With Chunking |
+|----------------|------------------|---------------|
+| **10K files** | 100MB memory | ✅ Works fine either way |
+| **50K files** | 500MB memory | ✅ Chunking recommended |
+| **100K files** | 1GB+ memory | ⚠️ **Chunking required** |
+| **200K+ files** | 2GB+ memory | 🚨 **Chunking essential** |
+
+**Troubleshooting Chunking Issues:**
+
+**Memory still too high?**
+```bash
+# Force smaller chunks
+python main.py --setup
+# Choose "custom" mode and specify smaller chunk size (500-800)
+```
+
+**Processing too slow?**
+```bash
+# Increase chunk size (if you have sufficient RAM)
+python main.py --setup  
+# Choose "custom" mode and specify larger chunk size (2000-2500)
+```
+
+**Chunk size recommendations in logs:**
+```
+Memory optimization: Processing 100,000 files in 67 chunks of 1,500
+Memory analysis: 8192MB available, using 2457MB (30%)
+```
+
 #### **Performance Metrics for Different Collection Sizes**
 
 | Collection Size | Processing Time | Memory Usage | Cache Benefit |
