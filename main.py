@@ -6,6 +6,7 @@ from glob import glob
 from src.config import load_config, select_config_file
 from src.tui import tui_setup, run_search, schedule_search, show_help, run_interactive_review, tui_list_setup, run_list
 from src.report import summarize_reports
+from src.version import get_version, print_version_info
 from rich.console import Console
 
 console = Console()
@@ -92,7 +93,7 @@ def run_summary_command(report_files, config_dir):
         console.print(f"[red]{traceback.format_exc()}[/red]")
 
 def main():
-    parser = argparse.ArgumentParser(description="Photochomper - Duplicate Photo Finder")
+    parser = argparse.ArgumentParser(description=f"PhotoChomper v{get_version()} - High-Performance Duplicate Photo Detection")
     parser.add_argument("--setup", action="store_true", help="Run setup TUI")
     parser.add_argument("--search", action="store_true", help="Run duplicate search")
     parser.add_argument("--review", action="store_true", help="Interactive duplicate review with actions")
@@ -101,12 +102,22 @@ def main():
     parser.add_argument("--list", action="store_true", help="List all files with comprehensive metadata and export to CSV/SQLite")
     parser.add_argument("--configdir", type=str, help="Specify config directory to use")
     parser.add_argument("--config", type=str, help="Specify config file to use")
+    parser.add_argument("--version", action="store_true", help="Show version information")
     args = parser.parse_args()
 
+    # Handle version command first
+    if args.version:
+        print_version_info()
+        return
+
     if not (args.setup or args.search or args.review or args.summary is not None or args.schedule or args.list):
+        console.print(f"[bold blue]PhotoChomper v{get_version()}[/bold blue]")
         console.print("[bold yellow]No command specified. Use --help for options.[/bold yellow]")
         show_help()
         return
+
+    # Show version on startup for all commands
+    console.print(f"[bold blue]PhotoChomper v{get_version()}[/bold blue] - High-Performance Duplicate Photo Detection\n")
 
     # Handle commands that don't need config first
     if args.setup:

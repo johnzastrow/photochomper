@@ -4,7 +4,50 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PhotoChomper is a high-performance Python-based tool for managing and organizing massive photo collections (200K+ files) by identifying duplicate images and videos. Version 3.0 introduces revolutionary performance optimizations that reduce processing time from hours/days to minutes through advanced algorithmic improvements and memory-conscious design.
+PhotoChomper is a high-performance Python-based tool for managing and organizing massive photo collections (200K+ files) by identifying duplicate images and videos. Version 3.1+ introduces revolutionary performance optimizations that reduce processing time from hours/days to minutes through advanced algorithmic improvements and memory-conscious design.
+
+## Version Management
+
+**CRITICAL: Version numbers must be incremented with every code change!**
+
+### Version Tracking System
+- Version information is stored in `src/version.py`
+- Current version: **3.1.1** (Updated README with enhanced features documentation and version tracking system)
+- Follows semantic versioning: MAJOR.MINOR.PATCH
+
+### Version Increment Rules
+**Every time the code is modified, you MUST:**
+
+1. **Update `src/version.py`:**
+   - Increment `__version__` string
+   - Update `__version_info__` tuple
+   - Add entry to `VERSION_HISTORY` list
+
+2. **Version Increment Guidelines:**
+   - **PATCH** (+0.0.1): Bug fixes, small improvements, documentation updates
+   - **MINOR** (+0.1.0): New features, enhancements, significant improvements
+   - **MAJOR** (+1.0.0): Breaking changes, major architecture changes
+
+3. **Example Version Update:**
+   ```python
+   # Before change
+   __version__ = "3.1.0"
+   __version_info__ = (3, 1, 0)
+   
+   # After documentation update
+   __version__ = "3.1.1"
+   __version_info__ = (3, 1, 1)
+   VERSION_HISTORY = [
+       "3.1.1 - Updated README with enhanced features documentation and version tracking system",
+       "3.1.0 - Enhanced progress tracking, time estimation, and configurable chunking",
+       # ... existing history
+   ]
+   ```
+
+### Version Display
+- Version is shown on all command executions: `python main.py --setup`
+- Dedicated version command: `python main.py --version`
+- Help text includes version: `python main.py --help`
 
 ### Key Features
 - **Scalable Performance**: Handles 200K+ photos with 100-1000x speedup through LSH-based optimization

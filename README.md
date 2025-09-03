@@ -1,14 +1,17 @@
 # PhotoChomper
 
-PhotoChomper is a high-performance Python tool for managing massive photo collections (200K+ files) by identifying duplicate images and videos with revolutionary speed optimizations. Version 3.0 delivers 100-1000x performance improvements through advanced algorithmic innovations, making it possible to process massive collections in minutes instead of hours or days.
+PhotoChomper is a high-performance Python tool for managing massive photo collections (200K+ files) by identifying duplicate images and videos with revolutionary speed optimizations. Version 3.1+ delivers 100-1000x performance improvements through advanced algorithmic innovations, enhanced progress tracking, and intelligent memory management, making it possible to process massive collections in minutes with real-time feedback.
 
-## 🚀 Version 3.0 Performance Revolution
+## 🚀 Version 3.1+ Enhanced Performance & User Experience
 
-- **555x Speedup** for 200K photo collections
-- **Stable Memory Usage** - Never exceeds 2GB regardless of collection size  
-- **LSH Optimization** - Reduces billions of comparisons to millions
-- **SQLite Caching** - 90%+ speedup on repeated runs
-- **Two-Stage Processing** - Fast exact duplicates + selective perceptual analysis
+- **Enhanced Progress Tracking** - Real-time status updates with time estimation and visual indicators
+- **Intelligent Chunking** - Memory-based optimization with automatic recommendations
+- **555x Speedup** for 200K photo collections with detailed progress visibility
+- **Stable Memory Usage** - Never exceeds 2GB regardless of collection size with real-time monitoring
+- **LSH Optimization** - Reduces billions of comparisons to millions with progress feedback
+- **SQLite Caching** - 90%+ speedup on repeated runs with cache hit tracking
+- **Two-Stage Processing** - Fast exact duplicates + selective perceptual analysis with phase tracking
+- **Skip SHA256 Option** - Configurable processing stages for specialized workflows
 
 ![PhotoChomper Logo](docs/chomper.png)
 
@@ -114,6 +117,17 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
 ---
 
 ## Recent Updates
+
+### **Version 3.1.0** - Enhanced Progress Tracking & User Experience 🎯
+**Advanced progress monitoring and intelligent memory optimization:**
+- ✅ **Real-Time Progress Tracking**: Visual indicators (📁🔗🎯✅) for each processing phase
+- ✅ **Time Estimation**: ETA calculations that improve accuracy as processing continues
+- ✅ **Intelligent Chunking**: Memory-based recommendations (Conservative/Balanced/Performance)
+- ✅ **Memory Analysis**: Real-time monitoring with color-coded warnings and optimization tips
+- ✅ **Skip SHA256 Option**: Configurable processing stages for similarity-only workflows
+- ✅ **Enhanced Setup TUI**: System memory analysis and chunking strategy recommendations
+- ✅ **Version Tracking**: Comprehensive version management with detailed history
+- ✅ **Phase-Specific Timing**: Separate time tracking for file discovery, SHA256, and similarity stages
 
 ### **Version 3.0** - Performance Revolution 🚀
 **Breakthrough optimizations for massive photo collections (200K+ files):**
@@ -338,28 +352,36 @@ For professional distribution, consider using NSIS or Inno Setup to create a pro
 ## Quick Start
 
 ### **For Large Collections (100K+ files)**
-Ensure you have the **Standard Setup** dependencies for full v3.0 optimizations:
+Ensure you have the **Standard Setup** dependencies for full v3.1 optimizations:
 ```bash
 pip install Pillow imagehash psutil rich pandas
 ```
 
-1. **Run Interactive Setup**
+1. **Check Version**
    ```bash
-   python main.py --setup
+   python main.py --version
+   # PhotoChomper v3.1.0 - High-performance duplicate photo detection
    ```
 
-2. **Search for Duplicates** ⚡ 
+2. **Run Interactive Setup** with enhanced memory analysis
+   ```bash
+   python main.py --setup
+   # Now includes system memory analysis and chunking recommendations
+   ```
+
+3. **Search for Duplicates** ⚡ with real-time progress
    ```bash
    python main.py --search
+   # Enhanced with visual progress indicators, time estimation, and memory monitoring
    # Expected time: 10-20 minutes for 200K files (vs hours/days in v2.0)
    ```
 
-3. **Review and Manage Duplicates**
+4. **Review and Manage Duplicates**
    ```bash
    python main.py --review
    ```
 
-4. **Generate Summary Report**
+5. **Generate Summary Report**
    ```bash
    python main.py --summary
    ```
@@ -382,12 +404,14 @@ pip install Pillow imagehash psutil rich pandas
 python main.py --setup
 ```
 
-The setup wizard guides you through:
+The **enhanced setup wizard** guides you through:
 - **📁 Directories to scan** (with sensible defaults)
 - **📄 File types** to include (images and videos)
 - **🎯 Similarity detection** algorithm and threshold
+- **⚡ Performance optimization** (Skip SHA256 option with clear explanations)
+- **💾 Memory optimization** (System analysis with Conservative/Balanced/Performance recommendations)
 - **📂 Move directory** for duplicate management
-- **⚡ Performance settings** (threads, memory optimization)
+- **⚙️ Threading settings** (optimized for your CPU)
 - **📋 Output preferences** (reports, naming conventions)
 
 ### Run Duplicate Search
@@ -396,12 +420,14 @@ The setup wizard guides you through:
 python main.py --search
 ```
 
-Performs comprehensive duplicate detection:
-- Scans configured directories
-- Calculates SHA256 and similarity hashes
-- Groups similar/identical files
-- Exports results to CSV, JSON, and SQLite database
-- Creates indexed database with analysis views for advanced queries
+Performs comprehensive duplicate detection **with enhanced progress tracking**:
+- **📁 File Discovery**: Real-time file scanning with progress indicators
+- **🔗 SHA256 Processing**: Fast exact duplicate detection with time estimation
+- **🎯 Similarity Analysis**: Perceptual hashing with ETA updates and memory monitoring
+- **📊 Progress Feedback**: Visual phase indicators, elapsed time, and completion estimates
+- **💾 Memory Monitoring**: Real-time memory usage with color-coded warnings
+- **📄 Report Generation**: Exports results to CSV, JSON, and SQLite database
+- **📈 Performance Analytics**: Cache hit rates, processing speed, and optimization metrics
 
 ### Interactive Duplicate Review
 
@@ -637,16 +663,18 @@ Select config file by number (1-3):
 python main.py --configdir "/custom/configs" --config "my_config.conf"
 ```
 
-### **v3.0 Performance Optimizations for Large Collections**
+### **v3.1+ Performance Optimizations for Large Collections**
 
-PhotoChomper v3.0 automatically optimizes for massive collections:
+PhotoChomper v3.1+ automatically optimizes for massive collections with enhanced monitoring:
 
-#### **Automatic Optimizations**
-- **Two-Stage Processing**: SHA256 exact duplicates → perceptual hashing for unique files only
-- **LSH Bucketing**: Groups similar hashes to eliminate unnecessary comparisons  
-- **Progressive Thresholds**: Coarse filtering → precise analysis
-- **Adaptive Memory Management**: Dynamic chunk sizing based on available RAM
-- **SQLite Caching**: Persistent hash storage across runs
+#### **Automatic Optimizations with Real-Time Feedback**
+- **Two-Stage Processing**: SHA256 exact duplicates → perceptual hashing for unique files only (with progress tracking)
+- **LSH Bucketing**: Groups similar hashes to eliminate unnecessary comparisons (with reduction metrics)
+- **Progressive Thresholds**: Coarse filtering → precise analysis (with phase timing)
+- **Adaptive Memory Management**: Dynamic chunk sizing based on available RAM (with memory monitoring)
+- **SQLite Caching**: Persistent hash storage across runs (with cache hit rate tracking)
+- **Enhanced Progress Tracking**: Real-time status updates with time estimation and visual indicators
+- **Memory Analysis**: Color-coded memory usage warnings and automatic optimization adjustments
 
 #### **Understanding Chunked Processing**
 
@@ -704,16 +732,24 @@ Automatic selection: 2,000 files per chunk
 Result: 250 chunks, 20MB memory per chunk, 45-minute processing
 ```
 
-**Configuring Chunking:**
+**Configuring Chunking with v3.1+ Enhancements:**
 
-During setup (`python main.py --setup`), you can choose:
+During setup (`python main.py --setup`), you'll see **system memory analysis and recommendations**:
 
-**1. Automatic Mode (Recommended):**
+**1. Automatic Mode (Recommended) with System Analysis:**
 ```
+System Memory: 8000MB available (15.2% in use)
+
+Memory optimization strategies:
+  Conservative: Lowest memory usage, slower processing
+  Balanced: Good balance of speed and memory usage (recommended)
+  Performance: Faster processing, higher memory usage
+
 Memory optimization mode: auto
 ✅ PhotoChomper analyzes your system and collection size
 ✅ Automatically adjusts chunk size for optimal performance
 ✅ Handles memory spikes and system variations
+✅ Provides real-time memory monitoring during processing
 ```
 
 **2. Custom Mode (Advanced Users):**
@@ -735,16 +771,22 @@ Memory optimization mode: disable
 ⚠️ May cause system instability with large collections
 ```
 
-**Chunking Progress Display:**
+**Enhanced Chunking Progress Display (v3.1+):**
 
-During processing, you'll see chunk progress:
+During processing, you'll see **detailed progress with visual indicators**:
 
 ```
+📁 File Discovery
+   Progress: 150,000/150,000 files (100.0%) | Elapsed: 0.8s
+
 🔗 Stage 1/2: SHA256 Exact Duplicates
-   Progress: 15,000/150,000 files (10.0%) | Elapsed: 2m 15s (45s this phase) | ETA: 18m 30s | Memory: 15.2%
+   Progress: 45,000/150,000 files (30.0%) | Elapsed: 2m 45s (1m 30s this phase) | ETA: 6m 15s | Memory: 18.2%
+
+🎯 Stage 2/2: DHASH Similarity
+   Progress: 85,000/120,000 files (70.8%) | Elapsed: 8m 10s (4m 20s this phase) | ETA: 1m 50s | Memory: 22.1%
 
 Memory optimization: Processing 150,000 files in 83 chunks of 1,800
-SHA256 Progress: 15,000/150,000 files (10.0%), Memory: 15.2%
+Memory analysis: 8000MB available, using 1600MB (20%)
 ```
 
 **Advanced Chunking Scenarios:**
