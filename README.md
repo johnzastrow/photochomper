@@ -6,12 +6,16 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
 
 - **Enhanced Progress Tracking** - Real-time status updates with time estimation and visual indicators
 - **Intelligent Chunking** - Memory-based optimization with automatic recommendations
-- **555x Speedup** for 200K photo collections with detailed progress visibility
+- **More Speed** with detailed progress visibility
 - **Stable Memory Usage** - Never exceeds 2GB regardless of collection size with real-time monitoring
-- **LSH Optimization** - Reduces billions of comparisons to millions with progress feedback
-- **SQLite Caching** - 90%+ speedup on repeated runs with cache hit tracking
-- **Two-Stage Processing** - Fast exact duplicates + selective perceptual analysis with phase tracking
 - **Skip SHA256 Option** - Configurable processing stages for specialized workflows
+
+## 🚀 Version 3.0 Performance Revolution
+
+- **Stable Memory Usage** - Never exceeds 2GB regardless of collection size  
+- **LSH Optimization** - Reduces billions of comparisons to millions
+- **SQLite Caching** - 90%+ speedup on repeated runs
+- **Two-Stage Processing** - Fast exact duplicates + selective perceptual analysis
 
 ![PhotoChomper Logo](docs/chomper.png)
 
@@ -27,20 +31,31 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
 ## Table of Contents
 
 - [PhotoChomper](#photochomper)
+  - [🚀 Version 3.1+ Enhanced Performance & User Experience](#-version-31-enhanced-performance--user-experience)
+  - [🚀 Version 3.0 Performance Revolution](#-version-30-performance-revolution)
   - [Table of Contents](#table-of-contents)
   - [Key Features](#key-features)
-    - [**🔍 Advanced Duplicate Detection**](#-advanced-duplicate-detection)
+    - [**🔍 Revolutionary Duplicate Detection (v3.0)**](#-revolutionary-duplicate-detection-v30)
     - [**🎯 Interactive Review System**](#-interactive-review-system)
     - [**📊 Advanced Reporting**](#-advanced-reporting)
-    - [**⚙️ Smart Configuration**](#️-smart-configuration)
+    - [**⚙️ Smart Configuration & Scaling**](#️-smart-configuration--scaling)
   - [Recent Updates](#recent-updates)
-    - [**Version 2.0** - Major Feature Release](#version-20---major-feature-release)
+    - [**Version 3.1.0** - Enhanced Progress Tracking & User Experience](#version-310---enhanced-progress-tracking--user-experience)
+    - [**Version 3.0** - Performance Revolution](#version-30---performance-revolution)
+    - [**Version 2.0** - Enhanced User Experience](#version-20---enhanced-user-experience)
   - [Installation](#installation)
     - [**Prerequisites**](#prerequisites)
-    - [**Install Dependencies**](#install-dependencies)
-    - [**Optional Dependencies for Enhanced Features**](#optional-dependencies-for-enhanced-features)
-    - [**Building Single Executable for Windows**](#building-single-executable-for-windows)
+    - [**Dependency Tiers**](#dependency-tiers)
+      - [**Minimal Setup** (SHA256 exact duplicates only)](#minimal-setup-sha256-exact-duplicates-only)
+      - [**Standard Setup** (recommended - full duplicate detection)](#standard-setup-recommended---full-duplicate-detection)
+      - [**Full Setup** (all advanced features)](#full-setup-all-advanced-features)
+    - [**Optional Dependencies Breakdown**](#optional-dependencies-breakdown)
+    - [**Graceful Fallbacks**](#graceful-fallbacks)
+    - [**Performance Recommendations**](#performance-recommendations)
+    - [**Building Single Executable for Windows with UV + PyInstaller**](#building-single-executable-for-windows-with-uv--pyinstaller)
   - [Quick Start](#quick-start)
+    - [**For Large Collections (100K+ files)**](#for-large-collections-100k-files)
+    - [**Performance Expectations**](#performance-expectations)
   - [Usage](#usage)
     - [Interactive Setup](#interactive-setup)
     - [Run Duplicate Search](#run-duplicate-search)
@@ -58,6 +73,7 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
   - [Reporting and Analysis](#reporting-and-analysis)
     - [**Output Formats**](#output-formats)
     - [**Report Contents**](#report-contents)
+    - [**SQLite Database Analysis**](#sqlite-database-analysis)
     - [**Auto-Discovery**](#auto-discovery)
   - [Configuration](#configuration)
     - [**Configuration Files**](#configuration-files)
@@ -65,10 +81,10 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
     - [**Multiple Configurations**](#multiple-configurations)
   - [Advanced Usage](#advanced-usage)
     - [**Custom Config and Output Locations**](#custom-config-and-output-locations)
-    - [**Memory Optimization for Large Collections**](#memory-optimization-for-large-collections)
-    - [**Multi-threading Configuration**](#multi-threading-configuration)
+    - [**v3.1+ Performance Optimizations for Large Collections**](#v31-performance-optimizations-for-large-collections)
     - [**Batch Operations**](#batch-operations)
   - [Troubleshooting](#troubleshooting)
+    - [**Performance Issues**](#performance-issues)
     - [**Common Issues**](#common-issues)
     - [**Log Files**](#log-files)
     - [**Getting Help**](#getting-help)
@@ -78,6 +94,8 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
     - [**Testing**](#testing)
   - [License](#license)
   - [Acknowledgements](#acknowledgements)
+  - [Performance Comparison](#performance-comparison)
+  - [Why Choose PhotoChomper v3.0?](#why-choose-photochomper-v30)
 
 ---
 
@@ -231,72 +249,132 @@ For **massive collections (100K+ files)**, use the **Standard Setup** to get:
 - ✅ SQLite hash caching for repeated runs
 - ✅ LSH-based comparison optimization
 
-### **Building Single Executable for Windows**
+### **Building Single Executable for Windows with UV + PyInstaller**
 
-PhotoChomper can be built as a single `.exe` file for easy distribution on Windows systems without requiring Python installation.
+PhotoChomper can be built as a single `.exe` file for easy distribution on Windows systems without requiring Python installation. This section covers the modern approach using `uv` (the fast Python package manager) with PyInstaller.
 
 **Prerequisites for Building:**
 - Windows 10/11
-- Python 3.8+ installed
-- All PhotoChomper dependencies installed
+- [UV](https://docs.astral.sh/uv/) installed (`winget install --id=astral-sh.uv  -e`)
+- Git (for cloning the repository)
 
-**Install PyInstaller:**
+**Quick Build with UV (Recommended Method):**
 ```bash
-# Using uv (recommended)
+# Clone and navigate to PhotoChomper
+git clone https://github.com/yourusername/photochomper.git
+cd photochomper
+
+# Create virtual environment and install dependencies
+uv venv
+uv pip install -r requirements.txt
+
+# Install PyInstaller
 uv pip install pyinstaller
 
-# Or using pip
-pip install pyinstaller
+# One-line build command with UV
+uvx pyinstaller --onefile --name="PhotoChomper" --add-data "src;src" --collect-all="rich" --collect-all="pandas" --collect-all="PIL" --collect-all="imagehash" --collect-all="psutil" main.py
 ```
 
-You and also just do the following with uv:
-`uvx pyinstaller --onefile --name="PhotoChomper" --add-data "src;src" --collect-all="rich"   --collect-all="pandas" --collect-all="PIL" main.py`
-
-**Build Single Executable:**
+**Alternative: Step-by-step Build Process:**
 ```bash
 # Navigate to PhotoChomper directory
-cd photochomper/photochomper
+cd photochomper
+
+# Activate UV virtual environment
+uv venv .venv
+source .venv/Scripts/activate  # Windows
+
+# Install all dependencies including optional ones for full feature support
+uv pip install Pillow imagehash opencv-python ffmpeg-python iptcinfo3 python-xmp-toolkit exifread psutil rich pandas pyinstaller
 
 # Build single executable (recommended)
 pyinstaller --onefile --name="PhotoChomper" --add-data "src;src" main.py
 
-# Alternative: Build with console window (for debugging)
+# Build with console window (for debugging)
 pyinstaller --onefile --console --name="PhotoChomper-Debug" --add-data "src;src" main.py
 
-# Advanced build with icon (if you have an icon file)
-pyinstaller --onefile --name="PhotoChomper" --add-data "src;src" --icon="icon.ico" main.py
+# Advanced build with all features and optimizations
+pyinstaller --onefile --name="PhotoChomper" --add-data "src;src" --collect-all="rich" --collect-all="pandas" --collect-all="PIL" --collect-all="imagehash" --collect-all="psutil" --optimize=2 main.py
 ```
 
 **Build Output:**
-- Executable will be created in `dist/PhotoChomper.exe`
-- File size: ~50-100MB (includes Python runtime and all dependencies)
+- Executable created in `dist/PhotoChomper.exe`
+- File size: ~80-150MB (includes Python runtime and all dependencies)
 - No Python installation required on target machines
+- Fully portable - copy and run anywhere on Windows
 
-**Advanced Build Options:**
+**UV-Specific Build Benefits:**
+- ✅ **Faster dependency resolution**: UV resolves dependencies 10-100x faster than pip
+- ✅ **Reproducible builds**: UV.lock file ensures consistent dependency versions
+- ✅ **Clean virtual environments**: UV creates isolated environments automatically
+- ✅ **Better cache management**: UV caches packages globally for faster subsequent builds
+
+**Advanced Build Options with UV:**
 ```bash
-# Build with hidden imports (if you encounter import errors)
-pyinstaller --onefile --name="PhotoChomper" ^
-    --add-data "src;src" ^
-    --hidden-import="PIL" ^
-    --hidden-import="imagehash" ^
-    --hidden-import="cv2" ^
-    --hidden-import="ffmpeg" ^
-    main.py
+# Create requirements lockfile for reproducible builds
+uv pip freeze > requirements-build.txt
 
-# Build with specific Python optimizations
-pyinstaller --onefile --name="PhotoChomper" ^
-    --add-data "src;src" ^
-    --optimize=2 ^
-    --strip ^
-    main.py
+# Build with specific dependency versions
+uv pip install -r requirements-build.txt
+uvx pyinstaller --onefile --name="PhotoChomper-v3.1.1" --add-data "src;src" --collect-all="rich" --collect-all="pandas" --collect-all="PIL" --collect-all="imagehash" --collect-all="psutil" --collect-all="opencv-python" --optimize=2 main.py
+
+# Build with version information in filename
+uvx pyinstaller --onefile --name="PhotoChomper-$(python -c 'from src.version import get_version; print(get_version())')" --add-data "src;src" --collect-all="rich" --collect-all="pandas" --collect-all="PIL" --collect-all="imagehash" --collect-all="psutil" main.py
 ```
 
-**Testing the Executable:**
+**Testing the Built Executable:**
 ```bash
-# Test the built executable
+# Navigate to build output directory
 cd dist
+
+# Test version and help
+PhotoChomper.exe --version
 PhotoChomper.exe --help
+
+# Test core functionality
 PhotoChomper.exe --setup
+```
+
+**Automated Build Script for CI/CD:**
+```bash
+# build-windows.sh - Automated build script using UV
+#!/bin/bash
+echo "Building PhotoChomper Windows Executable with UV..."
+
+# Setup environment
+uv venv build-env
+source build-env/Scripts/activate
+
+# Install dependencies
+uv pip install Pillow imagehash opencv-python ffmpeg-python iptcinfo3 python-xmp-toolkit exifread psutil rich pandas pyinstaller
+
+# Get version for filename
+VERSION=$(python -c "from src.version import get_version; print(get_version())")
+echo "Building PhotoChomper v$VERSION"
+
+# Build executable with version in filename
+uvx pyinstaller \
+  --onefile \
+  --name="PhotoChomper-v$VERSION" \
+  --add-data "src;src" \
+  --collect-all="rich" \
+  --collect-all="pandas" \
+  --collect-all="PIL" \
+  --collect-all="imagehash" \
+  --collect-all="psutil" \
+  --collect-all="opencv-python" \
+  --optimize=2 \
+  main.py
+
+echo "Build complete: dist/PhotoChomper-v$VERSION.exe"
+
+# Test the executable
+echo "Testing executable..."
+cd dist
+./PhotoChomper-v$VERSION.exe --version
+./PhotoChomper-v$VERSION.exe --help
+
+echo "Build and test successful!"
 ```
 
 **Distribution:**

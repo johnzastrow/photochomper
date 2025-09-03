@@ -14,12 +14,14 @@ Current version reflects the enhanced v3.0+ features with:
 - LSH-optimized similarity detection
 """
 
-__version__ = "3.1.1"
-__version_info__ = (3, 1, 1)
+__version__ = "3.1.3"
+__version_info__ = (3, 1, 3)
 
 # Version history tracking
 VERSION_HISTORY = [
-    "3.1.1 - Updated README with enhanced features documentation and version tracking system",
+    "3.1.3 - Updated README table of contents to reflect all enhanced features and sections",
+    "3.1.2 - Enhanced README with comprehensive UV + PyInstaller Windows executable build instructions",
+    "3.1.1 - Updated README with enhanced features documentation and version tracking system", 
     "3.1.0 - Enhanced progress tracking, time estimation, and configurable chunking",
     "3.0.0 - Revolutionary performance optimizations with LSH and two-stage detection",
     "2.0.0 - Enhanced user experience with advanced TUI and selective file actions",

@@ -12,7 +12,7 @@ PhotoChomper is a high-performance Python-based tool for managing and organizing
 
 ### Version Tracking System
 - Version information is stored in `src/version.py`
-- Current version: **3.1.1** (Updated README with enhanced features documentation and version tracking system)
+- Current version: **3.1.3** (Updated README table of contents to reflect all enhanced features and sections)
 - Follows semantic versioning: MAJOR.MINOR.PATCH
 
 ### Version Increment Rules
