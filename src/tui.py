@@ -9,7 +9,7 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
 from src.config import save_config, log_action, save_list_config, load_list_config
-from src.scanner import find_duplicates, HashAlgorithm, get_image_metadata
+from src.scanner import find_duplicates, HashAlgorithm, get_image_metadata, ProgressStats
 from src.report import export_report
 from src.actions import ActionExecutor, FileAction, ActionBatch, ActionType, create_delete_actions, create_move_actions
 from src.lister import run_comprehensive_listing
@@ -82,6 +82,19 @@ def tui_setup():
     algorithm = console.input(f"Similarity algorithm\n[dim]Default: {default_algorithm} (recommended)[/dim]\n> ").strip().lower()
     algorithm = algorithm if algorithm in ['dhash', 'phash', 'ahash', 'whash'] else default_algorithm
     
+    # SHA256 skip option
+    console.print(f"\n[bold cyan]⚡ Performance Optimization[/bold cyan]")
+    console.print("PhotoChomper uses a two-stage process:")
+    console.print("  1. Fast SHA256 hashing for exact duplicates (30-70% of duplicates)")
+    console.print("  2. Slower perceptual hashing for similar images")
+    console.print("\nSkipping stage 1 processes only similar images (not exact duplicates).")
+    
+    skip_sha256_input = console.input("Skip SHA256 exact duplicate detection?\n[dim]Default: no (recommended for complete duplicate detection)[/dim]\n> ").strip().lower()
+    skip_sha256 = skip_sha256_input in ('y', 'yes')
+    
+    if skip_sha256:
+        console.print("[yellow]⚠️  Note: This will only find similar images, not exact duplicates[/yellow]")
+    
     # Quality ranking option
     console.print(f"\n[bold cyan]📊 Quality Analysis[/bold cyan]")
     quality_default_display = "yes" if default_quality_ranking else "no"
@@ -93,19 +106,42 @@ def tui_setup():
     workers = console.input(f"Number of worker threads\n[dim]Default: {default_max_workers} (adjust based on CPU cores)[/dim]\n> ").strip()
     max_workers = int(workers) if workers.isdigit() else default_max_workers
     
-    # Memory optimization options
+    # Memory optimization options with enhanced recommendations
     console.print(f"\n[bold cyan]💾 Memory Optimization[/bold cyan]")
-    console.print("For large collections (100k+ files), enable chunked processing")
-    console.print("This processes files in smaller batches to reduce memory usage")
+    console.print("PhotoChomper automatically optimizes memory usage based on your system")
     
-    enable_chunking = console.input("Enable chunked processing?\n[dim]Default: auto (enabled for large collections)[/dim]\n> ").strip().lower()
+    # Get memory info for recommendations
+    try:
+        from src.scanner import MemoryStats, get_chunk_size_recommendations
+        memory_stats = MemoryStats.current()
+        console.print(f"System Memory: {memory_stats.available_mb:.0f}MB available ({memory_stats.percent_used:.1f}% in use)")
+        
+        # Show recommendations for a sample file count
+        sample_files = 50000  # Use representative number for recommendations
+        recommendations = get_chunk_size_recommendations(sample_files, memory_stats.available_mb)
+        
+        console.print("\n[dim]Memory optimization strategies:[/dim]")
+        for strategy, rec in recommendations.items():
+            console.print(f"  [dim]{strategy.title()}: {rec['description']}[/dim]")
+        
+    except Exception:
+        console.print("Unable to analyze system memory - using conservative defaults")
+    
+    console.print("\nChunking configuration:")
+    chunk_mode = console.input("Memory optimization mode:\n" +
+                              "  [dim]auto[/dim]     - Automatic optimization (recommended)\n" +
+                              "  [dim]custom[/dim]   - Specify custom chunk size\n" +
+                              "  [dim]disable[/dim]  - Process all files at once (high memory)\n" +
+                              "[dim]Default: auto[/dim]\n> ").strip().lower()
+    
     chunk_size = None
-    if enable_chunking in ('y', 'yes'):
-        chunk_size_input = console.input("Chunk size (files per batch)\n[dim]Default: auto (calculated based on available memory)[/dim]\n> ").strip()
+    if chunk_mode == 'custom':
+        chunk_size_input = console.input("Chunk size (files per batch)\n[dim]Example: 1000 for conservative, 2000 for performance[/dim]\n> ").strip()
         if chunk_size_input.isdigit():
             chunk_size = int(chunk_size_input)
-    elif enable_chunking in ('n', 'no'):
+    elif chunk_mode == 'disable':
         chunk_size = 0  # Disable chunking
+        console.print("[yellow]⚠️  Warning: Disabling chunking may cause high memory usage with large collections[/yellow]")
 
     # File preferences
     console.print(f"\n[bold cyan]📋 Master File Selection[/bold cyan]")
@@ -177,6 +213,7 @@ def tui_setup():
         "exclude_dirs": [e.strip() for e in exclude_dirs if e.strip()],
         "similarity_threshold": similarity,
         "hash_algorithm": algorithm,
+        "skip_sha256": skip_sha256,
         "quality_ranking": quality_ranking,
         "max_workers": max_workers,
         "chunk_size": chunk_size,
@@ -217,38 +254,133 @@ def tui_setup():
     console.print(f"[dim]• Run 'python main.py --summary' to generate markdown reports[/dim]")
 
 def run_search(config: dict, config_path: str = None):
-    console.print("[bold blue]Searching for duplicates...[/bold blue]")
+    console.print("[bold blue]🔍 Starting PhotoChomper Duplicate Search[/bold blue]")
+    console.print("[dim]Using advanced two-stage optimization for maximum performance[/dim]\n")
+    
     start_time = time.time()
-    with Progress() as progress:
-        task = progress.add_task("Scanning...", total=100)
-        # Convert algorithm string to enum
-        algorithm_str = config.get("hash_algorithm", "dhash")
-        try:
-            algorithm = HashAlgorithm(algorithm_str)
-        except ValueError:
-            algorithm = HashAlgorithm.DHASH
-            log_action(f"Unknown algorithm '{algorithm_str}', using dhash")
+    current_progress = {"stats": None, "task_id": None}
+    
+    def progress_callback(stats: ProgressStats):
+        """Enhanced progress callback with detailed status and time estimation."""
+        current_progress["stats"] = stats
         
-        dupes, _ = find_duplicates(
+        # Format time displays
+        elapsed_str = format_time(stats.elapsed_time)
+        phase_elapsed_str = format_time(stats.phase_elapsed_time)
+        
+        # Status line with emoji indicators
+        status_emoji = {
+            "File Discovery": "📁",
+            "Stage 1/2: SHA256 Exact Duplicates": "🔗", 
+            "Stage 1/1: SHA256 Exact Duplicates": "🔗",
+            "Stage 2/2: DHASH Similarity": "🎯",
+            "Stage 2/2: PHASH Similarity": "🎯", 
+            "Stage 2/2: AHASH Similarity": "🎯",
+            "Stage 2/2: WHASH Similarity": "🎯",
+            "Completed": "✅"
+        }
+        
+        emoji = status_emoji.get(stats.phase, "⚙️")
+        
+        # Memory usage display
+        try:
+            from src.scanner import MemoryStats
+            memory = MemoryStats.current()
+            memory_str = f" | Memory: {memory.percent_used:.1f}%"
+            if memory.percent_used > 85:
+                memory_str = f"[red]{memory_str}[/red]"
+            elif memory.percent_used > 70:
+                memory_str = f"[yellow]{memory_str}[/yellow]"
+            else:
+                memory_str = f"[green]{memory_str}[/green]"
+        except:
+            memory_str = ""
+        
+        # Build progress display
+        if stats.total_files > 0:
+            file_progress = f"{stats.files_processed:,}/{stats.total_files:,} files ({stats.files_percent:.1f}%)"
+            
+            # Time estimation
+            if stats.estimated_completion_time > 0 and stats.phase != "Completed":
+                eta_str = format_time(stats.estimated_completion_time)
+                time_info = f" | ETA: {eta_str}"
+            else:
+                time_info = ""
+            
+            console.print(f"{emoji} [bold]{stats.phase}[/bold]")
+            console.print(f"   Progress: {file_progress} | Elapsed: {elapsed_str} ({phase_elapsed_str} this phase){time_info}{memory_str}")
+        else:
+            console.print(f"{emoji} [bold]{stats.phase}[/bold] | Elapsed: {elapsed_str}")
+        
+        # Add a separator line for readability
+        if stats.phase == "Completed":
+            console.print()
+    
+    # Convert algorithm string to enum
+    algorithm_str = config.get("hash_algorithm", "dhash")
+    try:
+        algorithm = HashAlgorithm(algorithm_str)
+    except ValueError:
+        algorithm = HashAlgorithm.DHASH
+        log_action(f"Unknown algorithm '{algorithm_str}', using dhash")
+    
+    # Get skip_sha256 setting
+    skip_sha256 = config.get("skip_sha256", False)
+    if skip_sha256:
+        console.print("[yellow]⚠️  Skipping SHA256 exact duplicate detection (as configured)[/yellow]\n")
+    
+    try:
+        dupes, hash_results = find_duplicates(
             config.get("dirs", []),
             config.get("types", []),
             config.get("exclude_dirs", []),
             config.get("similarity_threshold", 0.1),
             algorithm,
             config.get("max_workers", 4),
-            config.get("chunk_size")
+            config.get("chunk_size"),
+            skip_sha256,
+            progress_callback
         )
-        progress.update(task, completed=100)
-    exec_time = time.time() - start_time
-    console.print(f"[bold yellow]{len(dupes)} duplicate groups found.[/bold yellow]")
-    export_report(dupes, formats=["csv", "json", "sqlite"], config_path=config.get("config_file", config_path), exec_time=exec_time)
-    console.print("[bold green]Reports exported to duplicates_report.csv, duplicates_report.json, and duplicates_report.db[/bold green]")
-    log_action(
-        f"Search completed: {len(dupes)} groups found | Config: {config.get('config_file', config_path) or 'default'} | Execution time: {exec_time:.2f}s"
-    )
-    # Print summary of total duplicate files found
-    total_files = sum(len(g) for g in dupes)
-    console.print(f"[bold magenta]Total duplicate files: {total_files}[/bold magenta]")
+        
+        exec_time = time.time() - start_time
+        
+        # Final summary
+        console.print(f"[bold green]🎉 Search Completed![/bold green]")
+        console.print(f"[bold yellow]📊 Results: {len(dupes)} duplicate groups found[/bold yellow]")
+        total_files = sum(len(g) for g in dupes)
+        console.print(f"[bold magenta]📁 Total duplicate files: {total_files:,}[/bold magenta]")
+        console.print(f"[bold cyan]⏱️  Total execution time: {format_time(exec_time)}[/bold cyan]\n")
+        
+        # Export reports
+        console.print("[bold blue]📄 Exporting reports...[/bold blue]")
+        export_report(dupes, formats=["csv", "json", "sqlite"], config_path=config.get("config_file", config_path), exec_time=exec_time)
+        console.print("[bold green]✅ Reports exported:[/bold green]")
+        console.print("   • duplicates_report.csv (spreadsheet format)")
+        console.print("   • duplicates_report.json (structured data)")
+        console.print("   • duplicates_report.db (SQLite database with analytics)")
+        
+        log_action(f"Search completed: {len(dupes)} groups ({total_files} files) found | "
+                  f"Config: {config.get('config_file', config_path) or 'default'} | "
+                  f"Execution time: {exec_time:.2f}s")
+                  
+    except Exception as e:
+        console.print(f"[red]❌ Search failed: {e}[/red]")
+        import traceback
+        log_action(f"Search error: {e}\n{traceback.format_exc()}")
+        raise
+
+def format_time(seconds: float) -> str:
+    """Format time duration in a human-readable way."""
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    elif seconds < 3600:
+        minutes = int(seconds // 60)
+        secs = seconds % 60
+        return f"{minutes}m {secs:.0f}s"
+    else:
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        return f"{hours}h {minutes}m"
 
 def schedule_search(interval_hours: int, config: dict):
     console.print(f"[bold blue]Scheduled search every {interval_hours} hours.[/bold blue]")

@@ -1,0 +1,1 @@
+uv run pyinstaller --noconfirm --onefile --console --collect-all --icon "docs/favicon.ico" "main.py"

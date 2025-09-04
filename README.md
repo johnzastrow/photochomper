@@ -1,10 +1,17 @@
 # PhotoChomper
 
-PhotoChomper is a high-performance Python tool for managing massive photo collections (200K+ files) by identifying duplicate images and videos with revolutionary speed optimizations. Version 3.0 delivers 100-1000x performance improvements through advanced algorithmic innovations, making it possible to process massive collections in minutes instead of hours or days.
+PhotoChomper is a high-performance Python tool for managing massive photo collections (200K+ files) by identifying duplicate images and videos with revolutionary speed optimizations. Version 3.1+ delivers 100-1000x performance improvements through advanced algorithmic innovations, enhanced progress tracking, and intelligent memory management, making it possible to process massive collections in minutes with real-time feedback.
 
-## 🚀 Version 3.0 Performance Revolution
+##  Version 3.1+ Enhanced Performance & User Experience
 
-- **555x Speedup** for 200K photo collections
+- **Enhanced Progress Tracking** - Real-time status updates with time estimation and visual indicators
+- **Intelligent Chunking** - Memory-based optimization with automatic recommendations
+- **More Speed** with detailed progress visibility
+- **Stable Memory Usage** - Never exceeds 2GB regardless of collection size with real-time monitoring
+- **Skip SHA256 Option** - Configurable processing stages for specialized workflows
+
+##  Version 3.0 Performance Revolution
+
 - **Stable Memory Usage** - Never exceeds 2GB regardless of collection size  
 - **LSH Optimization** - Reduces billions of comparisons to millions
 - **SQLite Caching** - 90%+ speedup on repeated runs
@@ -24,20 +31,31 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
 ## Table of Contents
 
 - [PhotoChomper](#photochomper)
+  - [ Version 3.1+ Enhanced Performance & User Experience](#-version-31-enhanced-performance--user-experience)
+  - [ Version 3.0 Performance Revolution](#-version-30-performance-revolution)
   - [Table of Contents](#table-of-contents)
   - [Key Features](#key-features)
-    - [**🔍 Advanced Duplicate Detection**](#-advanced-duplicate-detection)
-    - [**🎯 Interactive Review System**](#-interactive-review-system)
-    - [**📊 Advanced Reporting**](#-advanced-reporting)
-    - [**⚙️ Smart Configuration**](#️-smart-configuration)
+    - [** Revolutionary Duplicate Detection (v3.0)**](#-revolutionary-duplicate-detection-v30)
+    - [** Interactive Review System**](#-interactive-review-system)
+    - [** Advanced Reporting**](#-advanced-reporting)
+    - [** Smart Configuration & Scaling**](#️-smart-configuration--scaling)
   - [Recent Updates](#recent-updates)
-    - [**Version 2.0** - Major Feature Release](#version-20---major-feature-release)
+    - [**Version 3.1.0** - Enhanced Progress Tracking & User Experience](#version-310---enhanced-progress-tracking--user-experience)
+    - [**Version 3.0** - Performance Revolution](#version-30---performance-revolution)
+    - [**Version 2.0** - Enhanced User Experience](#version-20---enhanced-user-experience)
   - [Installation](#installation)
     - [**Prerequisites**](#prerequisites)
-    - [**Install Dependencies**](#install-dependencies)
-    - [**Optional Dependencies for Enhanced Features**](#optional-dependencies-for-enhanced-features)
-    - [**Building Single Executable for Windows**](#building-single-executable-for-windows)
+    - [**Dependency Tiers**](#dependency-tiers)
+      - [**Minimal Setup** (SHA256 exact duplicates only)](#minimal-setup-sha256-exact-duplicates-only)
+      - [**Standard Setup** (recommended - full duplicate detection)](#standard-setup-recommended---full-duplicate-detection)
+      - [**Full Setup** (all advanced features)](#full-setup-all-advanced-features)
+    - [**Optional Dependencies Breakdown**](#optional-dependencies-breakdown)
+    - [**Graceful Fallbacks**](#graceful-fallbacks)
+    - [**Performance Recommendations**](#performance-recommendations)
+    - [**Building Single Executable for Windows with UV + PyInstaller**](#building-single-executable-for-windows-with-uv--pyinstaller)
   - [Quick Start](#quick-start)
+    - [**For Large Collections (100K+ files)**](#for-large-collections-100k-files)
+    - [**Performance Expectations**](#performance-expectations)
   - [Usage](#usage)
     - [Interactive Setup](#interactive-setup)
     - [Run Duplicate Search](#run-duplicate-search)
@@ -55,6 +73,7 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
   - [Reporting and Analysis](#reporting-and-analysis)
     - [**Output Formats**](#output-formats)
     - [**Report Contents**](#report-contents)
+    - [**SQLite Database Analysis**](#sqlite-database-analysis)
     - [**Auto-Discovery**](#auto-discovery)
   - [Configuration](#configuration)
     - [**Configuration Files**](#configuration-files)
@@ -62,10 +81,10 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
     - [**Multiple Configurations**](#multiple-configurations)
   - [Advanced Usage](#advanced-usage)
     - [**Custom Config and Output Locations**](#custom-config-and-output-locations)
-    - [**Memory Optimization for Large Collections**](#memory-optimization-for-large-collections)
-    - [**Multi-threading Configuration**](#multi-threading-configuration)
+    - [**v3.1+ Performance Optimizations for Large Collections**](#v31-performance-optimizations-for-large-collections)
     - [**Batch Operations**](#batch-operations)
   - [Troubleshooting](#troubleshooting)
+    - [**Performance Issues**](#performance-issues)
     - [**Common Issues**](#common-issues)
     - [**Log Files**](#log-files)
     - [**Getting Help**](#getting-help)
@@ -75,12 +94,14 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
     - [**Testing**](#testing)
   - [License](#license)
   - [Acknowledgements](#acknowledgements)
+  - [Performance Comparison](#performance-comparison)
+  - [Why Choose PhotoChomper v3.0?](#why-choose-photochomper-v30)
 
 ---
 
 ## Key Features
 
-### **🔍 Revolutionary Duplicate Detection (v3.0)**
+### ** Revolutionary Duplicate Detection (v3.0)**
 - **Two-Stage Architecture**: Fast SHA256 exact duplicates → selective perceptual analysis
 - **LSH Optimization**: Locality-Sensitive Hashing reduces O(n²) to ~O(n log n)
 - **Progressive Thresholds**: Coarse filtering → fine analysis (50% reduction in calculations)
@@ -88,14 +109,14 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
 - **Memory-Conscious**: Stable usage <2GB for any collection size
 - **Performance**: 555x speedup for 200K files (hours → minutes)
 
-### **🎯 Interactive Review System** 
+### ** Interactive Review System** 
 - **Rich visual interface**: Color-coded display with status indicators
 - **Selective file actions**: Choose specific files by row numbers (e.g., "2,3,5")
 - **Comprehensive metadata**: SHA256 hashes, similarity scores, file details
 - **Smart directory handling**: Remembers move directories across sessions
 - **Action previews**: See exactly what will happen before confirmation
 
-### **📊 Advanced Reporting**
+### ** Advanced Reporting**
 - **Multiple formats**: CSV, JSON, SQLite database, and Markdown summaries
 - **SQLite database**: Indexed tables with pre-built analysis views for advanced SQL queries
 - **Master column**: CSV and database include "Yes" column identifying master photos
@@ -104,7 +125,7 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
 - **Auto-discovery**: Finds existing reports automatically
 - **Executive summaries**: Key statistics and optimization insights
 
-### **⚙️ Smart Configuration & Scaling**
+### ** Smart Configuration & Scaling**
 - **Guided setup**: Interactive TUI with performance optimization recommendations
 - **Adaptive processing**: Dynamic chunk sizing based on available memory
 - **Multi-threading**: Optimized worker threads with I/O separation
@@ -115,7 +136,18 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
 
 ## Recent Updates
 
-### **Version 3.0** - Performance Revolution 🚀
+### **Version 3.1.0** - Enhanced Progress Tracking & User Experience 
+**Advanced progress monitoring and intelligent memory optimization:**
+- ✅ **Real-Time Progress Tracking**: Visual indicators (📁🔗🎯✅) for each processing phase
+- ✅ **Time Estimation**: ETA calculations that improve accuracy as processing continues
+- ✅ **Intelligent Chunking**: Memory-based recommendations (Conservative/Balanced/Performance)
+- ✅ **Memory Analysis**: Real-time monitoring with color-coded warnings and optimization tips
+- ✅ **Skip SHA256 Option**: Configurable processing stages for similarity-only workflows
+- ✅ **Enhanced Setup TUI**: System memory analysis and chunking strategy recommendations
+- ✅ **Version Tracking**: Comprehensive version management with detailed history
+- ✅ **Phase-Specific Timing**: Separate time tracking for file discovery, SHA256, and similarity stages
+
+### **Version 3.0** - Performance Revolution 
 **Breakthrough optimizations for massive photo collections (200K+ files):**
 - ✅ **Two-Stage Detection**: SHA256 exact duplicates → perceptual similarity for unique files only
 - ✅ **LSH Optimization**: Locality-Sensitive Hashing reduces 20B to 36M comparisons (555x speedup)
@@ -212,77 +244,137 @@ PhotoChomper automatically adapts when optional dependencies are missing:
 ### **Performance Recommendations**
 
 For **massive collections (100K+ files)**, use the **Standard Setup** to get:
-- ✅ Full v3.0 optimization benefits (555x speedup)
-- ✅ Memory monitoring and adaptive processing
-- ✅ SQLite hash caching for repeated runs
-- ✅ LSH-based comparison optimization
+-  Full v3.0 optimization benefits (555x speedup)
+-  Memory monitoring and adaptive processing
+-  SQLite hash caching for repeated runs
+-  LSH-based comparison optimization
 
-### **Building Single Executable for Windows**
+### **Building Single Executable for Windows with UV + PyInstaller**
 
-PhotoChomper can be built as a single `.exe` file for easy distribution on Windows systems without requiring Python installation.
+PhotoChomper can be built as a single `.exe` file for easy distribution on Windows systems without requiring Python installation. This section covers the modern approach using `uv` (the fast Python package manager) with PyInstaller.
 
 **Prerequisites for Building:**
 - Windows 10/11
-- Python 3.8+ installed
-- All PhotoChomper dependencies installed
+- [UV](https://docs.astral.sh/uv/) installed (`winget install --id=astral-sh.uv  -e`)
+- Git (for cloning the repository)
 
-**Install PyInstaller:**
+**Quick Build with UV (Recommended Method):**
 ```bash
-# Using uv (recommended)
+# Clone and navigate to PhotoChomper
+git clone https://github.com/yourusername/photochomper.git
+cd photochomper
+
+# Create virtual environment and install dependencies
+uv venv
+uv pip install -r requirements.txt
+
+# Install PyInstaller
 uv pip install pyinstaller
 
-# Or using pip
-pip install pyinstaller
+# One-line build command with UV
+uvx pyinstaller --onefile --name="PhotoChomper" --add-data "src;src" --collect-all="rich" --collect-all="pandas" --collect-all="PIL" --collect-all="imagehash" --collect-all="psutil" main.py
 ```
 
-You and also just do the following with uv:
-`uvx pyinstaller --onefile --name="PhotoChomper" --add-data "src;src" --collect-all="rich"   --collect-all="pandas" --collect-all="PIL" main.py`
-
-**Build Single Executable:**
+**Alternative: Step-by-step Build Process:**
 ```bash
 # Navigate to PhotoChomper directory
-cd photochomper/photochomper
+cd photochomper
+
+# Activate UV virtual environment
+uv venv .venv
+source .venv/Scripts/activate  # Windows
+
+# Install all dependencies including optional ones for full feature support
+uv pip install Pillow imagehash opencv-python ffmpeg-python iptcinfo3 python-xmp-toolkit exifread psutil rich pandas pyinstaller
 
 # Build single executable (recommended)
 pyinstaller --onefile --name="PhotoChomper" --add-data "src;src" main.py
 
-# Alternative: Build with console window (for debugging)
+# Build with console window (for debugging)
 pyinstaller --onefile --console --name="PhotoChomper-Debug" --add-data "src;src" main.py
 
-# Advanced build with icon (if you have an icon file)
-pyinstaller --onefile --name="PhotoChomper" --add-data "src;src" --icon="icon.ico" main.py
+# Advanced build with all features and optimizations
+pyinstaller --onefile --name="PhotoChomper" --add-data "src;src" --collect-all="rich" --collect-all="pandas" --collect-all="PIL" --collect-all="imagehash" --collect-all="psutil" --optimize=2 main.py
 ```
 
 **Build Output:**
-- Executable will be created in `dist/PhotoChomper.exe`
-- File size: ~50-100MB (includes Python runtime and all dependencies)
+- Executable created in `dist/PhotoChomper.exe`
+- File size: ~80-150MB (includes Python runtime and all dependencies)
 - No Python installation required on target machines
+- Fully portable - copy and run anywhere on Windows
 
-**Advanced Build Options:**
+**UV-Specific Build Benefits:**
+-  **Faster dependency resolution**: UV resolves dependencies 10-100x faster than pip
+-  **Reproducible builds**: UV.lock file ensures consistent dependency versions
+-  **Clean virtual environments**: UV creates isolated environments automatically
+-  **Better cache management**: UV caches packages globally for faster subsequent builds
+
+**Advanced Build Options with UV:**
 ```bash
-# Build with hidden imports (if you encounter import errors)
-pyinstaller --onefile --name="PhotoChomper" ^
-    --add-data "src;src" ^
-    --hidden-import="PIL" ^
-    --hidden-import="imagehash" ^
-    --hidden-import="cv2" ^
-    --hidden-import="ffmpeg" ^
-    main.py
+# Create requirements lockfile for reproducible builds
+uv pip freeze > requirements-build.txt
 
-# Build with specific Python optimizations
-pyinstaller --onefile --name="PhotoChomper" ^
-    --add-data "src;src" ^
-    --optimize=2 ^
-    --strip ^
-    main.py
+# Build with specific dependency versions
+uv pip install -r requirements-build.txt
+uvx pyinstaller --onefile --name="PhotoChomper-v3.1.1" --add-data "src;src" --collect-all="rich" --collect-all="pandas" --collect-all="PIL" --collect-all="imagehash" --collect-all="psutil" --collect-all="opencv-python" --optimize=2 main.py
+
+# Build with version information in filename
+uvx pyinstaller --onefile --name="PhotoChomper-$(python -c 'from src.version import get_version; print(get_version())')" --add-data "src;src" --collect-all="rich" --collect-all="pandas" --collect-all="PIL" --collect-all="imagehash" --collect-all="psutil" main.py
 ```
 
-**Testing the Executable:**
+**Testing the Built Executable:**
 ```bash
-# Test the built executable
+# Navigate to build output directory
 cd dist
+
+# Test version and help
+PhotoChomper.exe --version
 PhotoChomper.exe --help
+
+# Test core functionality
 PhotoChomper.exe --setup
+```
+
+**Automated Build Script for CI/CD:**
+```bash
+# build-windows.sh - Automated build script using UV
+#!/bin/bash
+echo "Building PhotoChomper Windows Executable with UV..."
+
+# Setup environment
+uv venv build-env
+source build-env/Scripts/activate
+
+# Install dependencies
+uv pip install Pillow imagehash opencv-python ffmpeg-python iptcinfo3 python-xmp-toolkit exifread psutil rich pandas pyinstaller
+
+# Get version for filename
+VERSION=$(python -c "from src.version import get_version; print(get_version())")
+echo "Building PhotoChomper v$VERSION"
+
+# Build executable with version in filename
+uvx pyinstaller \
+  --onefile \
+  --name="PhotoChomper-v$VERSION" \
+  --add-data "src;src" \
+  --collect-all="rich" \
+  --collect-all="pandas" \
+  --collect-all="PIL" \
+  --collect-all="imagehash" \
+  --collect-all="psutil" \
+  --collect-all="opencv-python" \
+  --optimize=2 \
+  main.py
+
+echo "Build complete: dist/PhotoChomper-v$VERSION.exe"
+
+# Test the executable
+echo "Testing executable..."
+cd dist
+./PhotoChomper-v$VERSION.exe --version
+./PhotoChomper-v$VERSION.exe --help
+
+echo "Build and test successful!"
 ```
 
 **Distribution:**
@@ -338,28 +430,36 @@ For professional distribution, consider using NSIS or Inno Setup to create a pro
 ## Quick Start
 
 ### **For Large Collections (100K+ files)**
-Ensure you have the **Standard Setup** dependencies for full v3.0 optimizations:
+Ensure you have the **Standard Setup** dependencies for full v3.1 optimizations:
 ```bash
 pip install Pillow imagehash psutil rich pandas
 ```
 
-1. **Run Interactive Setup**
+1. **Check Version**
    ```bash
-   python main.py --setup
+   python main.py --version
+   # PhotoChomper v3.1.0 - High-performance duplicate photo detection
    ```
 
-2. **Search for Duplicates** ⚡ 
+2. **Run Interactive Setup** with enhanced memory analysis
+   ```bash
+   python main.py --setup
+   # Now includes system memory analysis and chunking recommendations
+   ```
+
+3. **Search for Duplicates** ⚡ with real-time progress
    ```bash
    python main.py --search
+   # Enhanced with visual progress indicators, time estimation, and memory monitoring
    # Expected time: 10-20 minutes for 200K files (vs hours/days in v2.0)
    ```
 
-3. **Review and Manage Duplicates**
+4. **Review and Manage Duplicates**
    ```bash
    python main.py --review
    ```
 
-4. **Generate Summary Report**
+5. **Generate Summary Report**
    ```bash
    python main.py --summary
    ```
@@ -382,13 +482,15 @@ pip install Pillow imagehash psutil rich pandas
 python main.py --setup
 ```
 
-The setup wizard guides you through:
-- **📁 Directories to scan** (with sensible defaults)
-- **📄 File types** to include (images and videos)
-- **🎯 Similarity detection** algorithm and threshold
-- **📂 Move directory** for duplicate management
-- **⚡ Performance settings** (threads, memory optimization)
-- **📋 Output preferences** (reports, naming conventions)
+The **enhanced setup wizard** guides you through:
+- ** Directories to scan** (with sensible defaults)
+- ** File types** to include (images and videos)
+- ** Similarity detection** algorithm and threshold
+- ** Performance optimization** (Skip SHA256 option with clear explanations)
+- ** Memory optimization** (System analysis with Conservative/Balanced/Performance recommendations)
+- ** Move directory** for duplicate management
+- ** Threading settings** (optimized for your CPU)
+- ** Output preferences** (reports, naming conventions)
 
 ### Run Duplicate Search
 
@@ -396,12 +498,14 @@ The setup wizard guides you through:
 python main.py --search
 ```
 
-Performs comprehensive duplicate detection:
-- Scans configured directories
-- Calculates SHA256 and similarity hashes
-- Groups similar/identical files
-- Exports results to CSV, JSON, and SQLite database
-- Creates indexed database with analysis views for advanced queries
+Performs comprehensive duplicate detection **with enhanced progress tracking**:
+- ** File Discovery**: Real-time file scanning with progress indicators
+- ** SHA256 Processing**: Fast exact duplicate detection with time estimation
+- ** Similarity Analysis**: Perceptual hashing with ETA updates and memory monitoring
+- ** Progress Feedback**: Visual phase indicators, elapsed time, and completion estimates
+- ** Memory Monitoring**: Real-time memory usage with color-coded warnings
+- ** Report Generation**: Exports results to CSV, JSON, and SQLite database
+- ** Performance Analytics**: Cache hit rates, processing speed, and optimization metrics
 
 ### Interactive Duplicate Review
 
@@ -637,16 +741,187 @@ Select config file by number (1-3):
 python main.py --configdir "/custom/configs" --config "my_config.conf"
 ```
 
-### **v3.0 Performance Optimizations for Large Collections**
+### **v3.1+ Performance Optimizations for Large Collections**
 
-PhotoChomper v3.0 automatically optimizes for massive collections:
+PhotoChomper v3.1+ automatically optimizes for massive collections with enhanced monitoring:
 
-#### **Automatic Optimizations**
-- **Two-Stage Processing**: SHA256 exact duplicates → perceptual hashing for unique files only
-- **LSH Bucketing**: Groups similar hashes to eliminate unnecessary comparisons  
-- **Progressive Thresholds**: Coarse filtering → precise analysis
-- **Adaptive Memory Management**: Dynamic chunk sizing based on available RAM
-- **SQLite Caching**: Persistent hash storage across runs
+#### **Automatic Optimizations with Real-Time Feedback**
+- **Two-Stage Processing**: SHA256 exact duplicates → perceptual hashing for unique files only (with progress tracking)
+- **LSH Bucketing**: Groups similar hashes to eliminate unnecessary comparisons (with reduction metrics)
+- **Progressive Thresholds**: Coarse filtering → precise analysis (with phase timing)
+- **Adaptive Memory Management**: Dynamic chunk sizing based on available RAM (with memory monitoring)
+- **SQLite Caching**: Persistent hash storage across runs (with cache hit rate tracking)
+- **Enhanced Progress Tracking**: Real-time status updates with time estimation and visual indicators
+- **Memory Analysis**: Color-coded memory usage warnings and automatic optimization adjustments
+
+#### **Understanding Chunked Processing**
+
+PhotoChomper uses **intelligent chunking** to process large photo collections efficiently without overwhelming system memory. Think of chunking as processing your photos in "batches" rather than loading everything into memory at once.
+
+**What are Chunks?**
+A chunk is a subset of files processed together before moving to the next batch. Instead of loading 200,000 files into memory simultaneously, PhotoChomper might process them in chunks of 1,500 files at a time.
+
+**Why Chunking Matters:**
+```
+Without Chunking (❌):
+200,000 files × 10KB metadata each = 2GB+ memory usage
+↓
+System becomes slow, may crash with insufficient RAM
+
+With Chunking (✅):
+1,500 files × 10KB metadata = 15MB per chunk
+133 chunks processed sequentially = stable <100MB memory
+```
+
+**Automatic Chunk Size Selection:**
+
+PhotoChomper automatically chooses optimal chunk sizes based on your system:
+
+| System RAM | Memory Factor | Max Chunk Size | Example Collection |
+|------------|---------------|----------------|-------------------|
+| **>8GB RAM** | 35% usage | 2,000 files | 200K photos → 100 chunks |
+| **>4GB RAM** | 30% usage | 1,500 files | 150K photos → 100 chunks |
+| **>2GB RAM** | 25% usage | 1,000 files | 100K photos → 100 chunks |
+| **<2GB RAM** | 20% usage | 500 files | 50K photos → 100 chunks |
+
+**Real-World Examples:**
+
+**Example 1: Large Wedding Photography Collection**
+```
+Collection: 150,000 wedding photos (500GB)
+System: 8GB RAM laptop
+Automatic selection: 1,800 files per chunk
+Result: 83 chunks, 45MB memory per chunk, 15-minute processing
+```
+
+**Example 2: Family Archive on Budget System**
+```
+Collection: 25,000 family photos (100GB)  
+System: 4GB RAM desktop
+Automatic selection: 1,200 files per chunk
+Result: 21 chunks, 12MB memory per chunk, 3-minute processing
+```
+
+**Example 3: Professional Studio Collection**
+```
+Collection: 500,000 commercial photos (2TB)
+System: 32GB RAM workstation  
+Automatic selection: 2,000 files per chunk
+Result: 250 chunks, 20MB memory per chunk, 45-minute processing
+```
+
+**Configuring Chunking with v3.1+ Enhancements:**
+
+During setup (`python main.py --setup`), you'll see **system memory analysis and recommendations**:
+
+**1. Automatic Mode (Recommended) with System Analysis:**
+```
+System Memory: 8000MB available (15.2% in use)
+
+Memory optimization strategies:
+  Conservative: Lowest memory usage, slower processing
+  Balanced: Good balance of speed and memory usage (recommended)
+  Performance: Faster processing, higher memory usage
+
+Memory optimization mode: auto
+✅ PhotoChomper analyzes your system and collection size
+✅ Automatically adjusts chunk size for optimal performance
+✅ Handles memory spikes and system variations
+✅ Provides real-time memory monitoring during processing
+```
+
+**2. Custom Mode (Advanced Users):**
+```
+Memory optimization mode: custom
+Chunk size (files per batch): 1500
+
+Examples by use case:
+• Conservative (slow system): 500-800 files
+• Balanced (most systems): 1000-1500 files  
+• Performance (fast system): 1500-2500 files
+```
+
+**3. Disabled Mode (High-Risk):**
+```
+Memory optimization mode: disable
+⚠️ Warning: Processes all files simultaneously
+⚠️ Only recommended for small collections (<10K files)
+⚠️ May cause system instability with large collections
+```
+
+**Enhanced Chunking Progress Display (v3.1+):**
+
+During processing, you'll see **detailed progress with visual indicators**:
+
+```
+📁 File Discovery
+   Progress: 150,000/150,000 files (100.0%) | Elapsed: 0.8s
+
+🔗 Stage 1/2: SHA256 Exact Duplicates
+   Progress: 45,000/150,000 files (30.0%) | Elapsed: 2m 45s (1m 30s this phase) | ETA: 6m 15s | Memory: 18.2%
+
+🎯 Stage 2/2: DHASH Similarity
+   Progress: 85,000/120,000 files (70.8%) | Elapsed: 8m 10s (4m 20s this phase) | ETA: 1m 50s | Memory: 22.1%
+
+Memory optimization: Processing 150,000 files in 83 chunks of 1,800
+Memory analysis: 8000MB available, using 1600MB (20%)
+```
+
+**Advanced Chunking Scenarios:**
+
+**Network Storage Collections:**
+```bash
+# Smaller chunks reduce network I/O bursts
+chunk_size: 800  # Conservative for network-attached storage
+benefit: Reduces network congestion, more stable processing
+```
+
+**SSD vs HDD Storage:**
+```bash
+# SSD: Larger chunks (faster I/O)
+chunk_size: 2000+ files
+
+# HDD: Smaller chunks (avoid I/O bottlenecks)  
+chunk_size: 1000 files
+```
+
+**Memory-Constrained Systems:**
+```bash
+# Force smaller chunks on low-memory systems
+chunk_size: 500  # Ensures <50MB memory usage per chunk
+result: Slower but stable processing on 2GB systems
+```
+
+**When Chunking Becomes Critical:**
+
+| Collection Size | Without Chunking | With Chunking |
+|----------------|------------------|---------------|
+| **10K files** | 100MB memory | ✅ Works fine either way |
+| **50K files** | 500MB memory | ✅ Chunking recommended |
+| **100K files** | 1GB+ memory | ⚠️ **Chunking required** |
+| **200K+ files** | 2GB+ memory | 🚨 **Chunking essential** |
+
+**Troubleshooting Chunking Issues:**
+
+**Memory still too high?**
+```bash
+# Force smaller chunks
+python main.py --setup
+# Choose "custom" mode and specify smaller chunk size (500-800)
+```
+
+**Processing too slow?**
+```bash
+# Increase chunk size (if you have sufficient RAM)
+python main.py --setup  
+# Choose "custom" mode and specify larger chunk size (2000-2500)
+```
+
+**Chunk size recommendations in logs:**
+```
+Memory optimization: Processing 100,000 files in 67 chunks of 1,500
+Memory analysis: 8192MB available, using 2457MB (30%)
+```
 
 #### **Performance Metrics for Different Collection Sizes**
 

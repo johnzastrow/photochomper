@@ -5,6 +5,7 @@ import gc
 import sqlite3
 import json
 import platform
+import time
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple, Iterator, Generator
 from enum import Enum
@@ -214,6 +215,38 @@ class SimilarityMatch:
     hash2: str
 
 @dataclass
+class ProgressStats:
+    """Progress tracking statistics with time estimation."""
+    phase: str
+    current_step: int
+    total_steps: int
+    files_processed: int
+    total_files: int
+    start_time: float
+    phase_start_time: float
+    estimated_completion_time: float = 0.0
+    
+    @property
+    def elapsed_time(self) -> float:
+        return time.time() - self.start_time
+    
+    @property
+    def phase_elapsed_time(self) -> float:
+        return time.time() - self.phase_start_time
+    
+    @property
+    def progress_percent(self) -> float:
+        if self.total_steps == 0:
+            return 0.0
+        return (self.current_step / self.total_steps) * 100
+    
+    @property
+    def files_percent(self) -> float:
+        if self.total_files == 0:
+            return 0.0
+        return (self.files_processed / self.total_files) * 100
+
+@dataclass
 class MemoryStats:
     """Memory usage statistics."""
     available_mb: float
@@ -250,28 +283,100 @@ class MemoryStats:
                     percent_used=25.0
                 )
 
-def get_optimal_chunk_size(total_files: int, available_memory_mb: float = None) -> int:
-    """Calculate optimal chunk size based on available memory and file count."""
+def get_optimal_chunk_size(total_files: int, available_memory_mb: float = None, user_chunk_size: int = None) -> int:
+    """Calculate optimal chunk size based on available memory, file count, and user preference."""
+    if user_chunk_size is not None:
+        if user_chunk_size <= 0:
+            # User disabled chunking
+            log_action(f"Chunking disabled by user - processing all {total_files} files at once")
+            return total_files
+        else:
+            # User specified custom chunk size
+            log_action(f"Using user-specified chunk size: {user_chunk_size} files per chunk")
+            return min(user_chunk_size, total_files)
+    
     if available_memory_mb is None:
         memory_stats = MemoryStats.current()
         available_memory_mb = memory_stats.available_mb
     
-    # Conservative memory usage - use at most 25% of available memory
-    usable_memory_mb = available_memory_mb * 0.25
+    # Enhanced memory-based recommendations
+    # Conservative memory usage - scale based on total memory available
+    if available_memory_mb > 8000:  # >8GB RAM
+        memory_factor = 0.35  # Can use more memory
+        max_chunk_size = 2000
+    elif available_memory_mb > 4000:  # >4GB RAM  
+        memory_factor = 0.30
+        max_chunk_size = 1500
+    elif available_memory_mb > 2000:  # >2GB RAM
+        memory_factor = 0.25
+        max_chunk_size = 1000
+    else:  # Low memory system
+        memory_factor = 0.20
+        max_chunk_size = 500
     
-    # Estimate memory per file (hash + metadata + overhead)
-    estimated_memory_per_file_kb = 10  # Conservative estimate
+    usable_memory_mb = available_memory_mb * memory_factor
+    
+    # Estimate memory per file (hash + metadata + overhead)  
+    # More accurate estimation based on file type mix
+    if total_files > 50000:
+        # Large collections - be more conservative
+        estimated_memory_per_file_kb = 12
+    elif total_files > 10000:
+        estimated_memory_per_file_kb = 10  
+    else:
+        estimated_memory_per_file_kb = 8
+        
     max_files_in_memory = int((usable_memory_mb * 1024) / estimated_memory_per_file_kb)
     
     # Choose chunk size based on constraints
-    if total_files <= max_files_in_memory:
+    if total_files <= max_files_in_memory and total_files <= max_chunk_size:
         # All files fit in memory, process in single chunk
-        return total_files
+        chunk_size = total_files
+        log_action(f"Memory optimization: All {total_files} files fit in memory - no chunking needed")
     else:
-        # Need to chunk, but ensure reasonable minimum chunk size
-        chunk_size = max(min(max_files_in_memory, 1000), 100)
-        log_action(f"Memory optimization: Processing {total_files} files in chunks of {chunk_size}")
-        return chunk_size
+        # Need to chunk
+        chunk_size = max(min(max_files_in_memory, max_chunk_size, total_files), 100)
+        estimated_chunks = (total_files + chunk_size - 1) // chunk_size
+        log_action(f"Memory optimization: Processing {total_files} files in {estimated_chunks} chunks of {chunk_size}")
+        log_action(f"Memory analysis: {available_memory_mb:.0f}MB available, using {usable_memory_mb:.0f}MB ({memory_factor*100:.0f}%)")
+    
+    return chunk_size
+
+def get_chunk_size_recommendations(total_files: int, available_memory_mb: float = None) -> dict:
+    """Get chunk size recommendations for different scenarios."""
+    if available_memory_mb is None:
+        memory_stats = MemoryStats.current()
+        available_memory_mb = memory_stats.available_mb
+    
+    recommendations = {}
+    
+    # Calculate different scenarios
+    scenarios = [
+        ("conservative", 0.15, "Lowest memory usage, slower processing"),
+        ("balanced", 0.25, "Good balance of speed and memory usage (recommended)"),
+        ("performance", 0.35, "Faster processing, higher memory usage"),
+    ]
+    
+    for name, memory_factor, description in scenarios:
+        usable_memory_mb = available_memory_mb * memory_factor
+        estimated_memory_per_file_kb = 10
+        max_files_in_memory = int((usable_memory_mb * 1024) / estimated_memory_per_file_kb)
+        
+        if total_files <= max_files_in_memory:
+            chunk_size = total_files
+            estimated_chunks = 1
+        else:
+            chunk_size = max(min(max_files_in_memory, 2000), 100)
+            estimated_chunks = (total_files + chunk_size - 1) // chunk_size
+        
+        recommendations[name] = {
+            "chunk_size": chunk_size,
+            "estimated_chunks": estimated_chunks,
+            "memory_usage_mb": usable_memory_mb,
+            "description": description
+        }
+    
+    return recommendations
 
 def scan_files_chunked(dirs: List[str], types: List[str], exclude_dirs: List[str], 
                       chunk_size: int = None) -> Generator[List[str], None, None]:
@@ -711,14 +816,22 @@ def backup_file(filepath: str):
 
 def find_duplicates(dirs: List[str], types: List[str], exclude_dirs: List[str], 
                    similarity_threshold: float = 0.1, algorithm: HashAlgorithm = HashAlgorithm.DHASH,
-                   max_workers: int = 4, chunk_size: int = None) -> Tuple[List[List[str]], Dict[str, 'HashResult']]:
+                   max_workers: int = 4, chunk_size: int = None, skip_sha256: bool = False,
+                   progress_callback: Optional[callable] = None) -> Tuple[List[List[str]], Dict[str, 'HashResult']]:
     """Find duplicate files using optimized two-stage approach with memory-conscious processing."""
+    
+    start_time = time.time()
     
     # Check initial memory stats
     initial_memory = MemoryStats.current()
     log_action(f"Starting optimized duplicate detection. Memory usage: {initial_memory.percent_used:.1f}% ({initial_memory.used_mb:.0f}MB used)")
     
     # Count total files first for memory planning
+    if progress_callback:
+        progress_callback(ProgressStats(
+            "File Discovery", 0, 1, 0, 0, start_time, time.time()
+        ))
+    
     total_files = 0
     for d in dirs:
         if not os.path.exists(d):
@@ -730,23 +843,49 @@ def find_duplicates(dirs: List[str], types: List[str], exclude_dirs: List[str],
     
     if total_files == 0:
         log_action("No supported files found in specified directories")
-        return []
+        return [], {}
     
     log_action(f"Found {total_files} files to process - using two-stage optimization")
     
     # Determine processing strategy based on file count and memory
     if chunk_size is None:
         chunk_size = get_optimal_chunk_size(total_files, initial_memory.available_mb)
+    else:
+        chunk_size = get_optimal_chunk_size(total_files, initial_memory.available_mb, chunk_size)
     
-    # Stage 1: Fast SHA256 hashing for exact duplicates
-    log_action("Stage 1: Computing SHA256 hashes for exact duplicate detection...")
-    sha256_groups, unique_files = find_exact_duplicates_chunked(dirs, types, exclude_dirs, max_workers, chunk_size)
+    # Determine total processing stages
+    total_stages = 2 if not skip_sha256 and algorithm != HashAlgorithm.SHA256 else 1
+    current_stage = 0
+    
+    if progress_callback:
+        progress_callback(ProgressStats(
+            "File Discovery", 1, 1, 0, total_files, start_time, time.time()
+        ))
+    
+    # Stage 1: Fast SHA256 hashing for exact duplicates (unless skipped)
+    if skip_sha256:
+        log_action("Skipping SHA256 exact duplicate detection as requested")
+        sha256_groups = []
+        # Get all files for similarity processing
+        unique_files = []
+        for chunk_files in scan_files_chunked(dirs, types, exclude_dirs, chunk_size):
+            unique_files.extend(chunk_files)
+        current_stage = 1
+    else:
+        current_stage += 1
+        log_action("Stage 1: Computing SHA256 hashes for exact duplicate detection...")
+        sha256_groups, unique_files = find_exact_duplicates_chunked(
+            dirs, types, exclude_dirs, max_workers, chunk_size, 
+            progress_callback, start_time, current_stage, total_stages, total_files
+        )
     
     # Stage 2: Perceptual hashing only for files with unique SHA256
     if algorithm != HashAlgorithm.SHA256 and unique_files:
+        current_stage += 1
         log_action(f"Stage 2: Computing {algorithm.value} hashes for {len(unique_files)} unique files...")
         similarity_groups, hash_results_dict = find_similarity_duplicates_optimized(
-            unique_files, similarity_threshold, algorithm, max_workers, chunk_size
+            unique_files, similarity_threshold, algorithm, max_workers, chunk_size,
+            progress_callback, start_time, current_stage, total_stages, total_files
         )
         
         # Combine exact and similarity groups
@@ -770,6 +909,14 @@ def find_duplicates(dirs: List[str], types: List[str], exclude_dirs: List[str],
                     HashAlgorithm.SHA256, "", filepath, get_file_type(filepath),
                     sha256_file(filepath), 0.0
                 )
+    
+    # Final completion callback
+    if progress_callback:
+        total_time = time.time() - start_time
+        progress_callback(ProgressStats(
+            "Completed", total_stages, total_stages, total_files, total_files, 
+            start_time, time.time(), total_time
+        ))
     
     # Final memory stats
     final_memory = MemoryStats.current()
@@ -827,18 +974,26 @@ def find_similarity_groups_efficient(hash_results: List[HashResult], threshold: 
     return duplicate_groups
 
 def find_exact_duplicates_chunked(dirs: List[str], types: List[str], exclude_dirs: List[str], 
-                                 max_workers: int, chunk_size: int) -> Tuple[List[List[str]], List[str]]:
+                                 max_workers: int, chunk_size: int, progress_callback: Optional[callable] = None,
+                                 start_time: float = 0, stage_num: int = 1, total_stages: int = 2, 
+                                 total_files: int = 0) -> Tuple[List[List[str]], List[str]]:
     """Stage 1: Fast SHA256-based exact duplicate detection with memory optimization."""
+    phase_start = time.time()
     sha256_map = {}
     processed_files = 0
-    total_files = sum(1 for d in dirs if os.path.exists(d) 
-                     for root, _, filenames in os.walk(d) 
-                     if not any(ex in root for ex in exclude_dirs)
-                     for fname in filenames if is_supported_file(fname, types))
+    
+    # Use provided total_files or count them if not provided
+    if total_files == 0:
+        total_files = sum(1 for d in dirs if os.path.exists(d) 
+                         for root, _, filenames in os.walk(d) 
+                         if not any(ex in root for ex in exclude_dirs)
+                         for fname in filenames if is_supported_file(fname, types))
     
     # Process in chunks to maintain memory efficiency
+    chunk_count = 0
     for chunk_files in scan_files_chunked(dirs, types, exclude_dirs, chunk_size):
         chunk_hashes = {}
+        chunk_count += 1
         
         # Compute SHA256 hashes in parallel
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -860,7 +1015,26 @@ def find_exact_duplicates_chunked(dirs: List[str], types: List[str], exclude_dir
         processed_files += len(chunk_files)
         current_memory = MemoryStats.current()
         progress_pct = (processed_files / total_files) * 100
+        
+        # Calculate time estimation
+        elapsed_time = time.time() - phase_start
+        if processed_files > 0:
+            estimated_total_time = (elapsed_time / processed_files) * total_files
+            estimated_remaining = estimated_total_time - elapsed_time
+        else:
+            estimated_remaining = 0.0
+        
         log_action(f"SHA256 Progress: {processed_files}/{total_files} files ({progress_pct:.1f}%), Memory: {current_memory.percent_used:.1f}%")
+        
+        # Progress callback
+        if progress_callback:
+            progress_callback(ProgressStats(
+                f"Stage {stage_num}/{total_stages}: SHA256 Exact Duplicates", 
+                chunk_count, chunk_count + 1,  # Approximate chunk progress
+                processed_files, total_files,
+                start_time or phase_start, phase_start, 
+                estimated_remaining
+            ))
         
         # Memory management
         if current_memory.percent_used > 85:
@@ -879,8 +1053,12 @@ def find_exact_duplicates_chunked(dirs: List[str], types: List[str], exclude_dir
 
 def find_similarity_duplicates_optimized(unique_files: List[str], threshold: float, 
                                        algorithm: HashAlgorithm, max_workers: int, 
-                                       chunk_size: int) -> Tuple[List[List[str]], Dict[str, 'HashResult']]:
+                                       chunk_size: int, progress_callback: Optional[callable] = None,
+                                       start_time: float = 0, stage_num: int = 2, total_stages: int = 2,
+                                       total_files: int = 0) -> Tuple[List[List[str]], Dict[str, 'HashResult']]:
     """Stage 2: LSH-optimized similarity detection with caching for files with unique SHA256."""
+    phase_start = time.time()
+    
     # Initialize cache for performance boost
     cache = HashCache()
     cache.cleanup_old_entries(30)  # Clean up old entries
@@ -929,8 +1107,28 @@ def find_similarity_duplicates_optimized(unique_files: List[str], threshold: flo
         current_memory = MemoryStats.current()
         progress_pct = (processed_files / len(unique_files)) * 100
         cache_hit_pct = (cached_hits / processed_files) * 100 if processed_files > 0 else 0
+        
+        # Calculate time estimation
+        elapsed_time = time.time() - phase_start
+        if processed_files > 0:
+            estimated_total_time = (elapsed_time / processed_files) * len(unique_files)
+            estimated_remaining = estimated_total_time - elapsed_time
+        else:
+            estimated_remaining = 0.0
+        
         log_action(f"Similarity Progress: {processed_files}/{len(unique_files)} files ({progress_pct:.1f}%), "
                   f"Cache hits: {cache_hit_pct:.1f}%, Memory: {current_memory.percent_used:.1f}%")
+        
+        # Progress callback
+        if progress_callback:
+            progress_callback(ProgressStats(
+                f"Stage {stage_num}/{total_stages}: {algorithm.value.upper()} Similarity", 
+                i // similarity_chunk_size + 1, 
+                (len(unique_files) + similarity_chunk_size - 1) // similarity_chunk_size,
+                processed_files, len(unique_files),
+                start_time or phase_start, phase_start, 
+                estimated_remaining
+            ))
         
         # Memory management between chunks
         if current_memory.percent_used > 80:
