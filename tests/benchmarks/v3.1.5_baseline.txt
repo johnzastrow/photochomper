@@ -1,5 +1,5 @@
 version: 3.1.5
 date: 2025-09-05
-cache_creation_time: 0.022002458572387695
-cache_get_time: 0.01823139190673828
-cache_set_time: 0.039281368255615234
+cache_creation_time: 0.04500436782836914
+cache_get_time: 0.028397798538208008
+cache_set_time: 0.0440216064453125

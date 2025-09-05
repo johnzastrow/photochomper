@@ -36,6 +36,15 @@ As per updated CLAUDE.md guidelines, PhotoChomper now implements comprehensive v
 **Root Cause**: HashCache objects being used in comparison operations where numeric values expected
 **Fix Status**: ✅ RESOLVED - All type safety validations passed
 
+### Documentation Updates Completed
+**Status**: ✅ FULLY UPDATED
+
+#### Updated Files:
+- ✅ **README.md**: Added v3.1.5 section, testing framework documentation, and updated table of contents
+- ✅ **CLAUDE.md**: Enhanced with comprehensive testing requirements and v3.1.5 reference implementation
+- ✅ **CHANGELOG.md**: Created comprehensive changelog with detailed v3.1.5 information
+- ✅ **tests/TEST_RESULTS.md**: Updated with latest testing results and framework documentation
+
 ## 📁 Historical Test Results: v3.0+ Enhanced Features
 
 ## 📁 Test Files Created

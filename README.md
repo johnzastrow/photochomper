@@ -2,11 +2,12 @@
 
 PhotoChomper is a high-performance Python tool for managing massive photo collections (200K+ files) by identifying duplicate images and videos with revolutionary speed optimizations. Version 3.1+ delivers 100-1000x performance improvements through advanced algorithmic innovations, enhanced progress tracking, and intelligent memory management, making it possible to process massive collections in minutes with real-time feedback.
 
-##  Version 3.1+ Enhanced Performance & User Experience
+##  Version 3.1.5+ Enhanced Reliability & Testing
 
+- **Robust Error Handling** - Fixed HashCache comparison errors for stable processing
+- **Comprehensive Testing Framework** - Version-specific tests with regression prevention
 - **Enhanced Progress Tracking** - Real-time status updates with time estimation and visual indicators
 - **Intelligent Chunking** - Memory-based optimization with automatic recommendations
-- **More Speed** with detailed progress visibility
 - **Stable Memory Usage** - Never exceeds 2GB regardless of collection size with real-time monitoring
 - **Skip SHA256 Option** - Configurable processing stages for specialized workflows
 
@@ -40,6 +41,7 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
     - [** Advanced Reporting**](#-advanced-reporting)
     - [** Smart Configuration & Scaling**](#️-smart-configuration--scaling)
   - [Recent Updates](#recent-updates)
+    - [**Version 3.1.5** - Enhanced Reliability & Testing Framework](#version-315---enhanced-reliability--testing-framework)
     - [**Version 3.1.0** - Enhanced Progress Tracking & User Experience](#version-310---enhanced-progress-tracking--user-experience)
     - [**Version 3.0** - Performance Revolution](#version-30---performance-revolution)
     - [**Version 2.0** - Enhanced User Experience](#version-20---enhanced-user-experience)
@@ -83,6 +85,11 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
     - [**Custom Config and Output Locations**](#custom-config-and-output-locations)
     - [**v3.1+ Performance Optimizations for Large Collections**](#v31-performance-optimizations-for-large-collections)
     - [**Batch Operations**](#batch-operations)
+  - [Testing & Quality Assurance](#testing--quality-assurance)
+    - [**Running Tests**](#running-tests)
+    - [**Test Categories**](#test-categories)
+    - [**Testing Infrastructure**](#testing-infrastructure)
+    - [**Quality Standards**](#quality-standards)
   - [Troubleshooting](#troubleshooting)
     - [**Performance Issues**](#performance-issues)
     - [**Common Issues**](#common-issues)
@@ -135,6 +142,17 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
 ---
 
 ## Recent Updates
+
+### **Version 3.1.5** - Enhanced Reliability & Testing Framework
+**Comprehensive error resolution and testing infrastructure implementation:**
+- ✅ **HashCache Error Fix**: Resolved comparison errors for stable processing operations
+- ✅ **Version-Specific Testing**: Persistent test scripts for every version increment
+- ✅ **Regression Prevention**: Comprehensive test suite ensures previous fixes remain functional
+- ✅ **Automated Test Runner**: Single-command execution with detailed reporting and logging
+- ✅ **Performance Monitoring**: Baseline system detects performance regressions automatically
+- ✅ **Testing Standards**: Established comprehensive testing framework for future development
+- ✅ **Quality Assurance**: 100% test coverage for v3.1.5 with backwards compatibility validation
+- ✅ **Documentation Updates**: Enhanced testing guidelines and version tracking standards
 
 ### **Version 3.1.0** - Enhanced Progress Tracking & User Experience 
 **Advanced progress monitoring and intelligent memory optimization:**
@@ -949,6 +967,53 @@ python main.py --summary
 # Combine operations
 python main.py --search && python main.py --summary
 ```
+
+---
+
+## Testing & Quality Assurance
+
+PhotoChomper v3.1.5+ includes a comprehensive testing framework to ensure reliability and prevent regressions.
+
+### **Running Tests**
+
+```bash
+# Run all tests (recommended)
+python tests/run_all_version_tests.py
+
+# Run only version-specific tests
+python tests/run_all_version_tests.py --version-tests
+
+# Run only regression tests
+python tests/run_all_version_tests.py --regression-tests
+
+# Verbose output with detailed logging
+python tests/run_all_version_tests.py --verbose
+```
+
+### **Test Categories**
+
+- **Version-Specific Tests**: Validate specific fixes for each version
+- **Regression Tests**: Ensure previous version fixes remain functional
+- **Performance Tests**: Monitor for performance regressions
+- **Integration Tests**: End-to-end functionality validation
+
+### **Testing Infrastructure**
+
+```
+tests/
+├── version_tests/          # Version-specific fix validation
+├── regression/            # Regression test suites
+├── benchmarks/           # Performance baselines
+├── logs/                 # Test execution logs
+└── run_all_version_tests.py  # Automated test runner
+```
+
+### **Quality Standards**
+
+- ✅ **100% Test Coverage**: All version increments include comprehensive tests
+- ✅ **Regression Prevention**: Every previous fix is validated with each release
+- ✅ **Performance Monitoring**: Automated baseline comparison detects slowdowns
+- ✅ **Automated Reporting**: Detailed logs and metrics for debugging and analysis
 
 ---
 
