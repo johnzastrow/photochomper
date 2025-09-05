@@ -3,17 +3,14 @@
 Test script for the enhanced perceptual hashing functionality.
 """
 
-import os
 import tempfile
 from pathlib import Path
 from PIL import Image
-import numpy as np
 
 from src.scanner import (
     HashAlgorithm, compute_perceptual_hash, calculate_hash_similarity,
     find_duplicates, get_file_type, FileType
 )
-from src.config import log_action
 
 def create_test_images():
     """Create test images for duplicate detection testing."""

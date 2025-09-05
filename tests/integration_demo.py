@@ -68,7 +68,7 @@ def demonstrate_chunking_analysis(total_files, available_memory):
     optimal_chunk = get_optimal_chunk_size(total_files, available_memory)
     estimated_chunks = (total_files + optimal_chunk - 1) // optimal_chunk
     
-    print(f"\nOptimal Configuration:")
+    print("\nOptimal Configuration:")
     print(f"  Chunk Size: {optimal_chunk:,} files per chunk")
     print(f"  Total Chunks: {estimated_chunks:,}")
     print(f"  Memory per Chunk: ~{(available_memory * 0.25) / estimated_chunks:.1f}MB")
@@ -76,7 +76,7 @@ def demonstrate_chunking_analysis(total_files, available_memory):
     # Get recommendations
     recommendations = get_chunk_size_recommendations(total_files, available_memory)
     
-    print(f"\nAvailable Strategies:")
+    print("\nAvailable Strategies:")
     for strategy, rec in recommendations.items():
         memory_percent = (rec['memory_usage_mb'] / available_memory) * 100
         print(f"  {strategy.title():12s}: {rec['chunk_size']:5,} files/chunk | "
@@ -89,7 +89,7 @@ def demonstrate_chunking_analysis(total_files, available_memory):
 def demonstrate_progress_tracking(test_dir, chunk_size):
     """Demonstrate enhanced progress tracking."""
     print(f"\n{'='*60}")
-    print(f"PROGRESS TRACKING DEMONSTRATION")
+    print("PROGRESS TRACKING DEMONSTRATION")
     print(f"{'='*60}")
     
     progress_log = []
@@ -143,7 +143,7 @@ def demonstrate_progress_tracking(test_dir, chunk_size):
     total_time = time.time() - start_time
     
     print(f"\n{'='*60}")
-    print(f"SEARCH RESULTS")
+    print("SEARCH RESULTS")
     print(f"{'='*60}")
     print(f"⏱️  Total Time: {format_time(total_time)}")
     print(f"📊 Progress Updates: {len(progress_log)}")
@@ -152,7 +152,7 @@ def demonstrate_progress_tracking(test_dir, chunk_size):
     
     # Show duplicate groups found
     if groups:
-        print(f"\n📋 Duplicate Groups Found:")
+        print("\n📋 Duplicate Groups Found:")
         for i, group in enumerate(groups, 1):
             print(f"  Group {i}: {len(group)} files")
             for j, file_path in enumerate(group):
@@ -178,7 +178,7 @@ def format_time(seconds):
 def demonstrate_skip_sha256(test_dir, chunk_size):
     """Demonstrate skip SHA256 functionality."""
     print(f"\n{'='*60}")
-    print(f"SKIP SHA256 DEMONSTRATION")
+    print("SKIP SHA256 DEMONSTRATION")
     print(f"{'='*60}")
     
     def skip_progress_callback(stats: ProgressStats):
@@ -187,7 +187,7 @@ def demonstrate_skip_sha256(test_dir, chunk_size):
         elif 'Similarity' in stats.phase or 'DHASH' in stats.phase:
             print(f"✅ Similarity-only processing: {stats.phase}")
         elif stats.phase == "Completed":
-            print(f"✅ Completed similarity-only search")
+            print("✅ Completed similarity-only search")
     
     print("Running search with SHA256 stage skipped...")
     
@@ -237,18 +237,18 @@ def main():
         
         # Final summary
         print(f"\n{'='*60}")
-        print(f"INTEGRATION DEMO SUMMARY")
+        print("INTEGRATION DEMO SUMMARY")
         print(f"{'='*60}")
         print(f"✅ Enhanced Chunking: Analyzed {test_files + 3} files with {optimal_chunk} files/chunk")
         print(f"✅ Progress Tracking: {progress_updates} status updates during processing")
-        print(f"✅ Time Estimation: Real-time ETA calculations and phase timing")
-        print(f"✅ Skip SHA256 Option: Alternative processing mode demonstrated")
-        print(f"⏱️  Performance:")
+        print("✅ Time Estimation: Real-time ETA calculations and phase timing")
+        print("✅ Skip SHA256 Option: Alternative processing mode demonstrated")
+        print("⏱️  Performance:")
         print(f"   - Full Search: {format_time(search_time)}")
         print(f"   - Skip SHA256: {format_time(skip_time)}")
         print(f"   - Speed Ratio: {search_time / skip_time:.1f}x faster when skipping SHA256")
         
-        print(f"\n🎉 All enhanced features working correctly!")
+        print("\n🎉 All enhanced features working correctly!")
         
     except Exception as e:
         print(f"❌ Error during integration test: {e}")
@@ -259,7 +259,7 @@ def main():
         # Clean up
         try:
             shutil.rmtree(temp_dir)
-            print(f"\n🧹 Cleaned up test environment")
+            print("\n🧹 Cleaned up test environment")
         except:
             pass
 

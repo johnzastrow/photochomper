@@ -1,10 +1,9 @@
 import argparse
 import os
 import time
-from pathlib import Path
 from glob import glob
 from src.config import load_config, select_config_file
-from src.tui import tui_setup, run_search, schedule_search, show_help, run_interactive_review, tui_list_setup, run_list
+from src.tui import tui_setup, run_search, schedule_search, show_help, run_interactive_review, tui_list_setup
 from src.report import summarize_reports
 from src.version import get_version, print_version_info
 from rich.console import Console
@@ -84,7 +83,7 @@ def run_summary_command(report_files, config_dir):
                 console.print(f"[dim]{line}[/dim]")
             console.print(f"[dim]... and {len(lines) - 10} more lines[/dim]")
         else:
-            console.print(f"\n[dim]Generated summary:[/dim]")
+            console.print("\n[dim]Generated summary:[/dim]")
             console.print(f"[dim]{markdown_content}[/dim]")
             
     except Exception as e:

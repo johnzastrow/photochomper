@@ -23,8 +23,7 @@ import os
 import unittest
 import tempfile
 import time
-from unittest.mock import patch, MagicMock, call
-from pathlib import Path
+from unittest.mock import patch, MagicMock
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -290,7 +289,6 @@ class TestRegressionV318(unittest.TestCase):
     
     def test_performance_not_degraded(self):
         """Test that v3.1.8 improvements don't degrade performance."""
-        import time
         
         test_dir = tempfile.mkdtemp()
         cache_file = os.path.join(test_dir, "perf_test.db")
@@ -315,7 +313,6 @@ class TestRegressionV318(unittest.TestCase):
 
 def run_performance_baseline_v318():
     """Create performance baseline for v3.1.8."""
-    import time
     
     print("Running performance baseline tests for v3.1.8...")
     

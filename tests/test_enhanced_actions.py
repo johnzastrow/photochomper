@@ -176,14 +176,14 @@ def main():
     show_table_format()
     show_before_after()
     
-    print(f"\n📝 Summary:")
+    print("\n📝 Summary:")
     print("• Clear color coding with status indicators (👑 Master, #1 Duplicate)")
     print("• Detailed action previews with confirmation prompts")
     print("• Enhanced table format with quality and metadata")
     print("• Comprehensive explanations for each action")
     print("• Better error handling and user guidance")
     
-    print(f"\n🧪 To test the enhanced actions:")
+    print("\n🧪 To test the enhanced actions:")
     print("   python main.py --review")
 
 if __name__ == "__main__":

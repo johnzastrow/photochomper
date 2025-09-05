@@ -3,14 +3,12 @@
 Test script for the interactive duplicate review functionality.
 """
 
-import os
 import tempfile
 import shutil
 from pathlib import Path
-from datetime import datetime
 
-from src.tui import display_duplicate_group, interactive_duplicate_review, execute_selected_actions
-from src.actions import ActionExecutor, FileAction, ActionType, create_delete_actions
+from src.tui import display_duplicate_group
+from src.actions import FileAction, ActionType, create_delete_actions
 from src.scanner import find_duplicates, HashAlgorithm
 
 def create_test_duplicates(test_dir: Path) -> list:
@@ -152,7 +150,7 @@ def test_action_executor_with_real_files():
         print(f"  📋 Created {len(actions)} test actions")
         
         # Execute actions (but don't actually run them in test)
-        print(f"  📦 Actions ready for execution:")
+        print("  📦 Actions ready for execution:")
         for action in actions:
             print(f"    - {action.action_type.value}: {Path(action.source_path).name}")
         

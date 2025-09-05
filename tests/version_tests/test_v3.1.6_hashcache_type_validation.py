@@ -21,7 +21,6 @@ import unittest
 import tempfile
 import sqlite3
 from unittest.mock import patch, MagicMock
-from pathlib import Path
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))

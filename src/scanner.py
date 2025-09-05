@@ -3,23 +3,17 @@ import hashlib
 import concurrent.futures
 import gc
 import sqlite3
-import json
 import platform
 import time
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple, Iterator, Generator
+from typing import List, Dict, Any, Optional, Tuple, Generator
 from enum import Enum
 from dataclasses import dataclass
 from src.config import log_action
 
 # Duplicate imports retained for compatibility across the module (harmless).
 # They were added earlier to ensure imports are available in all code paths.
-import os
-import time
-import platform
 import struct
-import hashlib
-import concurrent.futures
 
 # Optional dependencies - wrapped in try/except so the application remains usable
 # even if optional libraries (psutil, PIL, imagehash, cv2, ffmpeg, etc.) are not installed.
@@ -1629,7 +1623,6 @@ def find_similarity_groups_lsh(
     - Perform final precise similarity checks on candidate groups.
     """
     from collections import defaultdict
-    import struct
 
     if len(hash_results) < 2:
         return []
@@ -1870,7 +1863,6 @@ def calculate_image_quality(filepath: str) -> float:
 
 import contextlib
 import sys
-import os
 
 
 @contextlib.contextmanager

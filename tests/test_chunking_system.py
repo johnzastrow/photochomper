@@ -7,7 +7,7 @@ Tests memory optimization, chunk size calculations, and adaptive processing.
 import unittest
 import tempfile
 import os
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
@@ -80,7 +80,7 @@ class TestChunkSizeCalculation(unittest.TestCase):
         
         # Higher memory should generally allow larger chunk sizes
         # (though there are caps, so it's not always strictly increasing)
-        print(f"\n=== Memory Tier Chunk Size Analysis ===")
+        print("\n=== Memory Tier Chunk Size Analysis ===")
         for memory_mb, chunk_size, desc in chunk_sizes:
             estimated_chunks = (total_files + chunk_size - 1) // chunk_size
             print(f"{desc:15s}: {memory_mb:5d}MB RAM → {chunk_size:4d} files/chunk, {estimated_chunks:3d} chunks")
@@ -308,7 +308,7 @@ class TestMemoryOptimizationIntegration(unittest.TestCase):
         
         recommendations = get_chunk_size_recommendations(total_files, available_memory)
         
-        print(f"\n=== Chunk Size Performance Analysis ===")
+        print("\n=== Chunk Size Performance Analysis ===")
         print(f"Collection: {total_files:,} files")
         print(f"Available RAM: {available_memory:,} MB")
         print()
@@ -327,7 +327,7 @@ class TestMemoryOptimizationIntegration(unittest.TestCase):
         memory_ratio = performance['memory_usage_mb'] / conservative['memory_usage_mb']
         chunk_ratio = performance['chunk_size'] / conservative['chunk_size']
         
-        print(f"\nPerformance vs Conservative:")
+        print("\nPerformance vs Conservative:")
         print(f"  Memory usage: {memory_ratio:.1f}x higher")
         print(f"  Chunk size: {chunk_ratio:.1f}x larger")
         print(f"  Expected speed improvement: ~{chunk_ratio:.1f}x (fewer I/O operations)")
@@ -344,9 +344,9 @@ class TestRealWorldScenarios(unittest.TestCase):
         chunk_size = get_optimal_chunk_size(total_files, available_memory)
         estimated_chunks = (total_files + chunk_size - 1) // chunk_size
         
-        print(f"\n=== Wedding Photography Scenario ===")
+        print("\n=== Wedding Photography Scenario ===")
         print(f"Collection: {total_files:,} photos")
-        print(f"System: 8GB laptop")
+        print("System: 8GB laptop")
         print(f"Optimal chunk size: {chunk_size:,} files")
         print(f"Total chunks: {estimated_chunks}")
         print(f"Memory per chunk: ~{(available_memory * 0.30) / estimated_chunks:.1f}MB")
@@ -365,9 +365,9 @@ class TestRealWorldScenarios(unittest.TestCase):
         chunk_size = get_optimal_chunk_size(total_files, available_memory)
         estimated_chunks = (total_files + chunk_size - 1) // chunk_size
         
-        print(f"\n=== Family Archive Scenario ===")
+        print("\n=== Family Archive Scenario ===")
         print(f"Collection: {total_files:,} photos")
-        print(f"System: 4GB desktop") 
+        print("System: 4GB desktop") 
         print(f"Optimal chunk size: {chunk_size:,} files")
         print(f"Total chunks: {estimated_chunks}")
         
@@ -388,12 +388,12 @@ class TestRealWorldScenarios(unittest.TestCase):
         chunk_size = get_optimal_chunk_size(total_files, available_memory)
         estimated_chunks = (total_files + chunk_size - 1) // chunk_size
         
-        print(f"\n=== Professional Studio Scenario ===")
+        print("\n=== Professional Studio Scenario ===")
         print(f"Collection: {total_files:,} photos")
-        print(f"System: 32GB workstation")
+        print("System: 32GB workstation")
         print(f"Optimal chunk size: {chunk_size:,} files")
         print(f"Total chunks: {estimated_chunks}")
-        print(f"Estimated processing time: ~45 minutes")
+        print("Estimated processing time: ~45 minutes")
         
         # High-end system should handle larger chunks
         self.assertGreaterEqual(chunk_size, 2000, "High-end system should use larger chunks")

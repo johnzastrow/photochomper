@@ -3,15 +3,12 @@
 Test script for the file actions system.
 """
 
-import os
 import tempfile
 import shutil
 from pathlib import Path
-from datetime import datetime
 
 from src.actions_clean import (
-    ActionExecutor, FileAction, ActionType, ActionStatus,
-    create_delete_actions, create_move_actions
+    ActionExecutor, create_delete_actions
 )
 
 def test_action_creation():

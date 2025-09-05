@@ -2,7 +2,6 @@ import os
 import sqlite3
 import csv
 import hashlib
-import time
 import concurrent.futures
 import platform
 from pathlib import Path
@@ -10,7 +9,7 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional, Iterator
 from dataclasses import dataclass
 from rich.console import Console
-from rich.progress import Progress, TaskID
+from rich.progress import Progress
 from src.config import log_action
 
 # Import optional dependencies for metadata extraction
@@ -512,7 +511,7 @@ def run_comprehensive_listing(search_dir: str, output_dir: str, excluded_extensi
     csv_path = Path(output_dir) / f"file_listing_{timestamp}.csv"
     sqlite_path = Path(output_dir) / f"file_listing_{timestamp}.db"
     
-    console.print(f"[bold blue]📋 Starting comprehensive file listing...[/bold blue]")
+    console.print("[bold blue]📋 Starting comprehensive file listing...[/bold blue]")
     console.print(f"• Search directory: [cyan]{search_dir}[/cyan]")
     console.print(f"• Output CSV: [cyan]{csv_path}[/cyan]")
     console.print(f"• Output SQLite: [cyan]{sqlite_path}[/cyan]")
@@ -597,7 +596,7 @@ def run_comprehensive_listing(search_dir: str, output_dir: str, excluded_extensi
         sqlite_conn.close()
     
     # Final statistics
-    console.print(f"\n[bold green]✅ File listing completed![/bold green]")
+    console.print("\n[bold green]✅ File listing completed![/bold green]")
     console.print(f"• Processed files: [cyan]{processed_count:,}[/cyan]")
     console.print(f"• CSV output: [cyan]{csv_path}[/cyan]")
     console.print(f"• SQLite output: [cyan]{sqlite_path}[/cyan]")

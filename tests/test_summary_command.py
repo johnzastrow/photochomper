@@ -8,7 +8,6 @@ import json
 import csv
 import tempfile
 from pathlib import Path
-from datetime import datetime
 
 def create_mock_csv_report(filename: str):
     """Create a mock CSV report file for testing."""

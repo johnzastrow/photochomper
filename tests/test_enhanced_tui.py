@@ -8,7 +8,7 @@ import unittest
 import tempfile
 import os
 import time
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
@@ -288,14 +288,14 @@ class TestTUIIntegration(unittest.TestCase):
         # Run the search
         try:
             run_search(self.config)
-        except Exception as e:
+        except Exception:
             # Some exceptions are expected due to mocking
             pass
         
         # Analyze captured output
         output_text = ' '.join(console_output)
         
-        print(f"\n=== TUI Integration Test Output Analysis ===")
+        print("\n=== TUI Integration Test Output Analysis ===")
         print(f"Console calls captured: {len(console_output)}")
         print(f"Total output length: {len(output_text)} characters")
         

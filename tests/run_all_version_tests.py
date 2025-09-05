@@ -9,7 +9,6 @@ reporting on the status of fixes across all PhotoChomper versions.
 """
 
 import sys
-import os
 import subprocess
 import time
 from pathlib import Path
@@ -100,7 +99,7 @@ def find_integration_tests():
 def save_test_log(results, log_file):
     """Save test results to log file."""
     with open(log_file, 'w') as f:
-        f.write(f"PhotoChomper Test Execution Log\n")
+        f.write("PhotoChomper Test Execution Log\n")
         f.write(f"Date: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"{'='*60}\n\n")
         
@@ -108,13 +107,13 @@ def save_test_log(results, log_file):
         passed_tests = sum(1 for r in results if r['success'])
         failed_tests = total_tests - passed_tests
         
-        f.write(f"Summary:\n")
+        f.write("Summary:\n")
         f.write(f"  Total Tests: {total_tests}\n")
         f.write(f"  Passed: {passed_tests}\n")
         f.write(f"  Failed: {failed_tests}\n")
         f.write(f"  Success Rate: {(passed_tests/total_tests*100):.1f}%\n\n")
         
-        f.write(f"Detailed Results:\n")
+        f.write("Detailed Results:\n")
         f.write(f"{'='*60}\n")
         
         for result in results:

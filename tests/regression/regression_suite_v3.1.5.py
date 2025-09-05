@@ -23,7 +23,6 @@ import unittest
 import tempfile
 import threading
 import time
-from unittest.mock import patch, MagicMock
 from pathlib import Path
 
 # Add project root to path
@@ -328,7 +327,7 @@ def run_performance_regression_test():
     else:
         print("No previous baseline found - creating new baseline")
     
-    print(f"Current performance:")
+    print("Current performance:")
     print(f"  Cache creation: {current_cache_creation_time:.6f}s")
     print(f"  Cache get: {current_cache_get_time:.6f}s")
     print(f"  Cache set: {current_cache_set_time:.6f}s")

@@ -12,7 +12,6 @@
 import os
 import sys
 import hashlib
-import threading
 import json
 import csv
 import time
@@ -21,7 +20,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any
 import argparse
-from PIL import Image
 try:
     import iptcinfo3  # For IPTC tags
 except ImportError:

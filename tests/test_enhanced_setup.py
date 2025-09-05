@@ -118,14 +118,14 @@ def main():
     show_move_directory_integration()
     show_before_after_comparison()
     
-    print(f"\n📝 Summary:")
+    print("\n📝 Summary:")
     print("• Setup now configures duplicate move directory")
     print("• All defaults clearly displayed with explanations")
     print("• Better visual organization with emojis")
     print("• Interactive review uses configured move directory")
     print("• Final confirmation shows all key settings")
     
-    print(f"\n🧪 To test the enhanced setup:")
+    print("\n🧪 To test the enhanced setup:")
     print("   python main.py --setup")
 
 if __name__ == "__main__":

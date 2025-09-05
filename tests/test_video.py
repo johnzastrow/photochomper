@@ -3,16 +3,14 @@
 Test script for video file support and metadata extraction.
 """
 
-import os
 import tempfile
 from pathlib import Path
 import subprocess
 
 from src.scanner import (
     HashAlgorithm, compute_video_hash, get_image_metadata,
-    find_duplicates, get_file_type, FileType, compute_video_similarity
+    find_duplicates, get_file_type, compute_video_similarity
 )
-from src.config import log_action
 
 def create_test_video(filepath: str, duration: int = 3, color: str = "red", resolution: str = "320x240"):
     """Create a test video using ffmpeg."""

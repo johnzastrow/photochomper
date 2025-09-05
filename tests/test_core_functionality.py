@@ -174,7 +174,7 @@ class TestMemoryOptimization(unittest.TestCase):
             self.assertLessEqual(chunk_size, total_files)
             self.assertGreaterEqual(estimated_chunks, 1)
         
-        print(f"\n=== Memory Tier Test Results ===")
+        print("\n=== Memory Tier Test Results ===")
         for tier, memory, chunk_size, chunks in results:
             print(f"{tier:15s}: {memory:5d}MB → {chunk_size:5d} files/chunk, {chunks:3d} chunks")
     
@@ -187,7 +187,7 @@ class TestMemoryOptimization(unittest.TestCase):
             (100, 1000, "tiny-collection-low-ram"),
         ]
         
-        print(f"\n=== Extreme Scenario Test Results ===")
+        print("\n=== Extreme Scenario Test Results ===")
         for total_files, memory_mb, description in extreme_cases:
             chunk_size = get_optimal_chunk_size(total_files, memory_mb)
             estimated_chunks = (total_files + chunk_size - 1) // chunk_size

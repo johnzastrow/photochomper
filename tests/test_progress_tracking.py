@@ -8,7 +8,6 @@ import unittest
 import time
 import tempfile
 import os
-from unittest.mock import Mock, patch, MagicMock
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
@@ -312,7 +311,7 @@ class TestProgressIntegration(unittest.TestCase):
         phases = [entry['phase'] for entry in progress_log]
         unique_phases = list(set(phases))
         
-        print(f"\n=== Progress Tracking Integration Test Results ===")
+        print("\n=== Progress Tracking Integration Test Results ===")
         print(f"Total processing time: {total_time:.2f} seconds")
         print(f"Progress updates received: {len(progress_log)}")
         print(f"Unique phases: {unique_phases}")
@@ -320,7 +319,7 @@ class TestProgressIntegration(unittest.TestCase):
         print(f"Hash results: {len(hash_results)}")
         
         # Print detailed progress log
-        print(f"\n=== Detailed Progress Log ===")
+        print("\n=== Detailed Progress Log ===")
         for i, entry in enumerate(progress_log):
             print(f"{i+1:2d}. [{entry['phase']}] Step {entry['step']} | "
                   f"Files {entry['files']} ({entry['files_progress']}) | "

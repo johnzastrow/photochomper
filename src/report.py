@@ -5,10 +5,10 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 from collections import defaultdict
-from typing import List, Dict, Any
+from typing import List, Dict
 import pandas as pd
 from src.config import load_config, log_action
-from src.scanner import get_image_metadata, sha256_file, rank_duplicates, HashAlgorithm, calculate_hash_similarity
+from src.scanner import get_image_metadata, sha256_file, rank_duplicates, HashAlgorithm
 
 def export_report(dupes: List[List[str]], formats: List[str] = ["csv", "json"], out_prefix: str = None, config_path: str = None, exec_time: float = None, progress_callback=None):
     config = load_config(config_path) if config_path else load_config()
@@ -748,7 +748,7 @@ def summarize_reports(report_files: List[str], output_file: str = None, summary_
         # File counts
         master_count = dir_file_counts.get(d, 0)
         duplicate_count = dir_duplicate_counts.get(d, 0)
-        md += f"**File Statistics:**\n"
+        md += "**File Statistics:**\n"
         md += f"- Original files with duplicates: **{master_count}**\n"
         md += f"- Total duplicate instances: **{duplicate_count}**\n"
         
@@ -773,7 +773,7 @@ def summarize_reports(report_files: List[str], output_file: str = None, summary_
         
         # Duplicate reasons
         if d in dir_reasons and dir_reasons[d]:
-            md += f"**Why Files Were Flagged as Duplicates:**\n"
+            md += "**Why Files Were Flagged as Duplicates:**\n"
             for reason, pct in sorted(dir_reasons[d].items(), key=lambda x: x[1], reverse=True):
                 reason_explain = {
                     "hash": "Identical content (same file hash)",
@@ -800,7 +800,7 @@ def summarize_reports(report_files: List[str], output_file: str = None, summary_
             md += f"**File Types:** {', '.join(dir_types[d])}\n"
             md += f"- *{len(dir_types[d])} different file type(s) have duplicates in this directory*\n"
         else:
-            md += f"**File Types:** None detected\n"
+            md += "**File Types:** None detected\n"
         
         md += "\n---\n\n"
 

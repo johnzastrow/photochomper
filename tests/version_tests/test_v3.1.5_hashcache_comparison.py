@@ -19,9 +19,7 @@ import sys
 import os
 import unittest
 import tempfile
-import sqlite3
 from unittest.mock import patch, MagicMock
-from pathlib import Path
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -162,7 +160,6 @@ class TestRegressionPreviousVersions(unittest.TestCase):
         Ensure that the HashCache comparison fix doesn't break thread safety.
         """
         import threading
-        import time
         
         test_dir = tempfile.mkdtemp()
         cache_file = os.path.join(test_dir, "thread_test_cache.db")
