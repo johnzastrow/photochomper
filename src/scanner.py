@@ -1010,17 +1010,12 @@ def get_image_metadata(filepath: str) -> Dict[str, Any]:
         # --- FIX: IPTCInfo3 .get() -> dict access ---
         if file_type == FileType.IMAGE and iptcinfo3 is not None:
             try:
-                info = iptcinfo3.IPTCInfo(filepath)
+                with suppress_stdout_stderr():
+                    info = iptcinfo3.IPTCInfo(filepath)
                 if info:
-                    meta["iptc_keywords"] = (
-                        info["keywords"] if "keywords" in info else []
-                    )
-                    meta["iptc_caption"] = (
-                        info["caption/abstract"] if "caption/abstract" in info else ""
-                    )
-                    meta["iptc_copyright"] = (
-                        info["copyright notice"] if "copyright notice" in info else ""
-                    )
+                    meta["iptc_keywords"] = info["keywords"] if "keywords" in info else []
+                    meta["iptc_caption"] = info["caption/abstract"] if "caption/abstract" in info else ""
+                    meta["iptc_copyright"] = info["copyright notice"] if "copyright notice" in info else ""
             except Exception as e:
                 log_action(f"Error reading IPTC for {filepath}: {e}")
 
@@ -1821,3 +1816,21 @@ def calculate_image_quality(filepath: str) -> float:
     except Exception as e:
         log_action(f"Error calculating image quality for {filepath}: {e}")
         return 0.5
+
+
+import contextlib
+import sys
+import os
+
+@contextlib.contextmanager
+def suppress_stdout_stderr():
+    with open(os.devnull, 'w') as devnull:
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        sys.stdout = devnull
+        sys.stderr = devnull
+        try:
+            yieldas devnull:
+        finally:
+            sys.stdout = old_stdouterr
+            sys.stderr = old_stderr

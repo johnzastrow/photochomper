@@ -202,3 +202,19 @@ DEFAULT_FILE_TYPES = [
     "rmvb",
     "asf",
 ]
+
+DEFAULT_FILE_TYPES_CSV = (
+    "jpg, jpeg, png, gif, bmp, tiff, tif, webp, heic, heif, cr2, nef, arw, dng, raf, orf, rw2, pef, srw, x3f, "
+    "psd, xcf, svg, avif, mp4, avi, mov, mkv, wmv, flv, webm, m4v, 3gp, mts, ts, vob, ogv, divx, xvid, rm, rmvb, asf"
+)
+
+
+# When displaying the guided --setup prompt, use the full list:
+def print_setup_filetypes_hint():
+    print("PhotoChomper can scan for the following file types by default:")
+    print(DEFAULT_FILE_TYPES_CSV)
+    print("You can customize this list in the advanced options.")
+
+
+# For argparse or prompt help text, use:
+DEFAULT_FILE_TYPES_HELP = f"Default: {DEFAULT_FILE_TYPES_CSV}"
