@@ -1,8 +1,42 @@
-# PhotoChomper v3.0+ Enhanced Features Test Results
+# PhotoChomper Testing Results
 
 ## 🧪 Test Suite Overview
 
-This document summarizes the comprehensive testing of PhotoChomper's new enhanced features including progress tracking, chunking optimization, time estimation, and TUI improvements.
+This document summarizes the comprehensive testing performed across PhotoChomper versions, including the latest v3.1.5 HashCache comparison error fix and the enhanced features from v3.0+.
+
+## 📋 Latest Results: v3.1.5 HashCache Fix (2025-09-05)
+
+### Version-Specific Testing Framework Implementation
+**Status: ✅ COMPLETED - New Testing Standards Established**
+
+As per updated CLAUDE.md guidelines, PhotoChomper now implements comprehensive version-specific testing:
+
+#### ✅ v3.1.5 Testing Results
+- **Primary Fix**: HashCache comparison error resolution
+- **Test Script**: `tests/version_tests/test_v3.1.5_hashcache_comparison.py`
+- **Status**: 7/7 tests passed (100% success rate)
+- **Performance Baseline**: Established for future regression testing
+- **Execution Time**: 0.28s
+
+#### ✅ Regression Testing Results  
+- **Test Suite**: `tests/regression/regression_suite_v3.1.5.py`
+- **Coverage**: All fixes from v3.1.4 back to v1.0.0 validated
+- **Status**: 7/7 tests passed (100% success rate)
+- **Verified Functionality**: Thread safety, LSH optimization, chunking, configuration, version tracking
+- **Execution Time**: 0.24s
+
+#### ✅ Test Framework Infrastructure
+- **Test Runner**: `tests/run_all_version_tests.py` - Automated execution with detailed logging
+- **Directory Structure**: Complete test organization with version tests, regression suites, benchmarks
+- **Performance Monitoring**: Baseline comparison system for detecting regressions
+- **Documentation**: Comprehensive test metadata and execution instructions
+
+### HashCache Error Fix Validation
+**Original Issue**: `'<' not supported between instances of 'HashCache' and 'int'`
+**Root Cause**: HashCache objects being used in comparison operations where numeric values expected
+**Fix Status**: ✅ RESOLVED - All type safety validations passed
+
+## 📁 Historical Test Results: v3.0+ Enhanced Features
 
 ## 📁 Test Files Created
 

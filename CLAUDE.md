@@ -136,17 +136,124 @@ python main.py --configdir "path/to/configs" --config "photochomper_config_YYYYM
 ```
 
 ### Testing and Quality
+
+**CRITICAL REQUIREMENT: Every version increment MUST include persistent test scripts to verify fixes**
+
+#### Test Script Requirements
+
+**For every version increment and bug fix, Claude MUST:**
+
+1. **Create Version-Specific Test Scripts**: 
+   - Create test files in `/tests/version_tests/` directory
+   - Name format: `test_v{version}_{fix_description}.py`
+   - Include the exact version number in comments and metadata
+   - Test scripts must be persistent and reusable
+
+2. **Test Script Structure**:
+   ```python
+   """
+   Test script for PhotoChomper v{version}
+   Created: {date}
+   Purpose: Verify fix for {specific_issue}
+   
+   This test verifies that {specific_problem} has been resolved.
+   """
+   
+   def test_{fix_name}_v{version}():
+       # Test implementation
+       pass
+   
+   def regression_test_previous_fixes():
+       # Verify all previous version fixes still work
+       pass
+   ```
+
+3. **Mandatory Test Categories**:
+   - **Unit Tests**: Test the specific fix in isolation
+   - **Integration Tests**: Test the fix within the full application
+   - **Regression Tests**: Verify all previous fixes remain functional
+   - **Performance Tests**: Ensure no performance degradation
+
+#### Version-Specific Testing Protocol
+
+**Example for v3.1.5 (HashCache comparison error fix):**
+
 ```bash
-# Run basic functionality test
+# Create test script
+tests/version_tests/test_v3.1.5_hashcache_comparison.py
+
+# Test the specific fix
+python tests/version_tests/test_v3.1.5_hashcache_comparison.py
+
+# Run full regression suite
+python tests/run_all_version_tests.py
+
+# Performance validation
+python tests/performance_regression_tests.py
+```
+
+#### Test Automation Requirements
+
+**Claude must create these files for EVERY version increment:**
+
+1. **`tests/version_tests/test_v{version}_{issue}.py`**
+   - Specific test for the current fix
+   - Must reproduce the original issue and verify the fix
+   - Include negative tests (edge cases that should still fail safely)
+
+2. **`tests/regression/regression_suite_v{version}.py`**
+   - Comprehensive test of ALL previous version fixes
+   - Automated execution of all version-specific tests
+   - Performance benchmarking against previous versions
+
+3. **`tests/integration/integration_v{version}.py`**
+   - End-to-end testing with the fix in place
+   - Real-world scenario testing
+   - Memory usage and error handling validation
+
+#### Test Execution Protocol
+
+**Before marking any fix as complete, Claude MUST:**
+
+1. **Immediate Testing**: Run the new test script to verify the fix works
+2. **Integration Testing**: Run full application tests with the fix
+3. **Regression Testing**: Execute ALL previous version test scripts
+4. **Performance Testing**: Verify no performance degradation
+5. **Documentation**: Update test documentation with results
+
+#### Test Documentation Requirements
+
+**Each test script must include:**
+- **Version Created**: Exact version number (e.g., "Created for PhotoChomper v3.1.5")
+- **Issue Reference**: Link to TODO.md or issue description
+- **Test Methodology**: How the test validates the fix
+- **Expected Results**: Clear pass/fail criteria
+- **Dependencies**: Required setup or test data
+- **Execution Instructions**: How to run the test
+
+#### Manual Testing Procedures
+
+```bash
+# Standard manual testing workflow
 python main.py --setup
 python main.py --search
 python main.py --review
-
-# Test summary generation
 python main.py --summary
 
-# No specific test framework configured - manual testing recommended
+# Version-specific testing
+python tests/version_tests/test_v{current_version}_{fix}.py
+
+# Full regression testing
+python tests/run_all_version_tests.py --verbose
 ```
+
+#### Test Data Management
+
+**Claude must maintain:**
+- **`tests/test_data/`**: Sample files for testing
+- **`tests/expected_results/`**: Expected output files for comparison
+- **`tests/benchmarks/`**: Performance baseline data
+- **`tests/logs/`**: Test execution logs by version
 
 ## Architecture and Code Structure
 
