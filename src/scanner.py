@@ -147,19 +147,34 @@ class HashCache:
             
             row = cursor.fetchone()
             if row:
-                cached_sha256, cached_perceptual, cached_size, cached_mtime = row
-                
-                # Check if file has changed
-                if cached_size == file_size and abs(cached_mtime - file_mtime) < 1.0:
-                    # File unchanged, return cached result
-                    return HashResult(
-                        algorithm=algorithm,
-                        hash_value=cached_perceptual or "",
-                        file_path=filepath,
-                        file_type=get_file_type(filepath),
-                        sha256_hash=cached_sha256 or "",
-                        similarity_score=0.0
-                    )
+                # Add debugging to track the exact issue
+                try:
+                    cached_sha256, cached_perceptual, cached_size, cached_mtime = row
+                    
+                    # Validate types to prevent comparison errors
+                    if not isinstance(cached_size, (int, float)) or not isinstance(cached_mtime, (int, float)):
+                        log_action(f"Invalid cached data types for {filepath}: size={type(cached_size)}, mtime={type(cached_mtime)}")
+                        return None
+                    
+                    # Additional validation for file_size and file_mtime
+                    if not isinstance(file_size, (int, float)) or not isinstance(file_mtime, (int, float)):
+                        log_action(f"Invalid file stat types for {filepath}: size={type(file_size)}, mtime={type(file_mtime)}")
+                        return None
+                    
+                    # Check if file has changed
+                    if cached_size == file_size and abs(cached_mtime - file_mtime) < 1.0:
+                        # File unchanged, return cached result
+                        return HashResult(
+                            algorithm=algorithm,
+                            hash_value=cached_perceptual or "",
+                            file_path=filepath,
+                            file_type=get_file_type(filepath),
+                            sha256_hash=cached_sha256 or "",
+                            similarity_score=0.0
+                        )
+                except Exception as inner_e:
+                    log_action(f"Error processing cached data for {filepath}: {inner_e}")
+                    return None
         except Exception as e:
             log_action(f"Error retrieving cached hash for {filepath}: {e}")
         finally:
