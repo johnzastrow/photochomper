@@ -1146,6 +1146,56 @@ MIT License - see LICENSE file for details.
 ✅ **User Friendly** - Interactive TUI with selective file actions  
 ✅ **Future Proof** - Optimized architecture scales to 1M+ files  
 
+## File Types Handled
+
+Given the code and libraries used in scanner.py, here are the image and video file types that can be processed:
+
+### Image File Types
+**Supported by PIL (Pillow) and imagehash (for perceptual hashing):**
+
+* JPEG/JPG (.jpg, .jpeg)
+* PNG (.png)
+* GIF (.gif)
+* BMP (.bmp)
+* TIFF (.tiff, .tif)
+* WEBP (.webp)
+* HEIC/HEIF (.heic, .heif) (Pillow >= 7.0.0 with libheif installed)
+* RAW formats (support depends on PIL plugins and external libraries):
+.cr2, .nef, .arw, .dng, .raf, .orf, .rw2, .pef, .srw, .x3f
+* Photoshop (.psd) (limited support)
+* GIMP (.xcf) (limited support)
+* SVG (.svg) (as rasterization, not native image)
+* AVIF (.avif) (Pillow >= 9.0.0 with libavif installed)
+* Video File Types
+
+**Supported by ffmpeg (via ffmpeg-python):**
+
+* MP4 (.mp4)
+* AVI (.avi)
+* OV (.mov)
+* MKV (.mkv)
+* WMV (.wmv)
+* FLV (.flv)
+* WEBM (.webm)
+* M4V (.m4v)
+* 3GP (.3gp)
+* MTS (.mts)
+* TS (.ts)
+* VOB (.vob)
+* OGV (.ogv)
+* DIVX (.divx)
+* XVID (.xvid)
+* RM (.rm)
+* RMVB (.rmvb)
+* ASF (.asf)
+
+Note:
+
+Actual support depends on the installed libraries and codecs (e.g., Pillow plugins, ffmpeg build).
+Some RAW and special formats may require additional dependencies or may have limited support.
+The file type detection is based on file extension, so files with the correct extension but unsupported/corrupt content may still fail to process.
+
+
 ---
 
 *PhotoChomper v3.0 - Making massive photo collection management possible* 📸🚀
