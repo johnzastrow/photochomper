@@ -90,35 +90,46 @@ class HashCache:
     
     def __init__(self, cache_file: str = HASH_CACHE_DB):
         self.cache_file = cache_file
-        self.conn = None
         self._init_db()
+    
+    def _get_connection(self):
+        """Get a thread-safe database connection."""
+        try:
+            # Each thread gets its own connection to avoid SQLite threading issues
+            conn = sqlite3.connect(self.cache_file, check_same_thread=False)
+            return conn
+        except Exception as e:
+            log_action(f"Error getting database connection: {e}")
+            return None
     
     def _init_db(self):
         """Initialize SQLite database for hash caching."""
         try:
-            self.conn = sqlite3.connect(self.cache_file)
-            self.conn.execute("""
-                CREATE TABLE IF NOT EXISTS hash_cache (
-                    filepath TEXT PRIMARY KEY,
-                    file_size INTEGER,
-                    file_mtime REAL,
-                    algorithm TEXT,
-                    sha256_hash TEXT,
-                    perceptual_hash TEXT,
-                    cached_at REAL
-                )
-            """)
-            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_filepath ON hash_cache(filepath)")
-            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_algorithm ON hash_cache(algorithm)")
-            self.conn.commit()
-            log_action(f"Hash cache initialized: {self.cache_file}")
+            conn = self._get_connection()
+            if conn:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS hash_cache (
+                        filepath TEXT PRIMARY KEY,
+                        file_size INTEGER,
+                        file_mtime REAL,
+                        algorithm TEXT,
+                        sha256_hash TEXT,
+                        perceptual_hash TEXT,
+                        cached_at REAL
+                    )
+                """)
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_filepath ON hash_cache(filepath)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_algorithm ON hash_cache(algorithm)")
+                conn.commit()
+                conn.close()
+                log_action(f"Hash cache initialized: {self.cache_file}")
         except Exception as e:
             log_action(f"Error initializing hash cache: {e}")
-            self.conn = None
     
     def get_cached_hash(self, filepath: str, algorithm: HashAlgorithm) -> Optional[HashResult]:
         """Retrieve cached hash if file hasn't changed."""
-        if not self.conn:
+        conn = self._get_connection()
+        if not conn:
             return None
         
         try:
@@ -128,7 +139,7 @@ class HashCache:
             file_mtime = stat.st_mtime
             
             # Query cache
-            cursor = self.conn.execute("""
+            cursor = conn.execute("""
                 SELECT sha256_hash, perceptual_hash, file_size, file_mtime 
                 FROM hash_cache 
                 WHERE filepath = ? AND algorithm = ?
@@ -151,19 +162,26 @@ class HashCache:
                     )
         except Exception as e:
             log_action(f"Error retrieving cached hash for {filepath}: {e}")
+        finally:
+            if conn:
+                conn.close()
         
         return None
     
     def cache_hash(self, result: HashResult):
         """Store hash result in cache."""
-        if not self.conn or not result.file_path:
+        if not result.file_path:
+            return
+        
+        conn = self._get_connection()
+        if not conn:
             return
         
         try:
             stat = os.stat(result.file_path)
             import time
             
-            self.conn.execute("""
+            conn.execute("""
                 INSERT OR REPLACE INTO hash_cache 
                 (filepath, file_size, file_mtime, algorithm, sha256_hash, perceptual_hash, cached_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -176,33 +194,38 @@ class HashCache:
                 result.hash_value,
                 time.time()
             ))
-            self.conn.commit()
+            conn.commit()
         except Exception as e:
             log_action(f"Error caching hash for {result.file_path}: {e}")
+        finally:
+            if conn:
+                conn.close()
     
     def cleanup_old_entries(self, days_old: int = 30):
         """Remove cache entries for files older than specified days."""
-        if not self.conn:
+        conn = self._get_connection()
+        if not conn:
             return
         
         try:
             import time
             cutoff_time = time.time() - (days_old * 24 * 3600)
             
-            cursor = self.conn.execute("DELETE FROM hash_cache WHERE cached_at < ?", (cutoff_time,))
+            cursor = conn.execute("DELETE FROM hash_cache WHERE cached_at < ?", (cutoff_time,))
             deleted = cursor.rowcount
-            self.conn.commit()
+            conn.commit()
             
             if deleted > 0:
                 log_action(f"Cleaned up {deleted} old cache entries")
         except Exception as e:
             log_action(f"Error cleaning up cache: {e}")
+        finally:
+            if conn:
+                conn.close()
     
     def close(self):
-        """Close database connection."""
-        if self.conn:
-            self.conn.close()
-            self.conn = None
+        """Close database connection (no-op since connections are closed after each use)."""
+        pass
 
 @dataclass
 class SimilarityMatch:
@@ -488,6 +511,10 @@ def compute_video_hash(filepath: str, algorithm: HashAlgorithm = HashAlgorithm.D
         return HashResult(algorithm, sha256_hash, filepath, FileType.VIDEO, sha256_hash, 0.0, "ffmpeg-python not available")
     
     try:
+        # Check if file exists and is readable before probing
+        if not os.path.exists(filepath) or not os.access(filepath, os.R_OK):
+            return HashResult(algorithm, sha256_hash, filepath, FileType.VIDEO, sha256_hash, 0.0, "File not found or not readable")
+        
         # Get video information first
         probe = ffmpeg.probe(filepath)
         
