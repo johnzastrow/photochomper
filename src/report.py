@@ -10,7 +10,7 @@ import pandas as pd
 from src.config import load_config, log_action
 from src.scanner import get_image_metadata, sha256_file, rank_duplicates, HashAlgorithm, calculate_hash_similarity
 
-def export_report(dupes: List[List[str]], formats: List[str] = ["csv", "json"], out_prefix: str = None, config_path: str = None, exec_time: float = None):
+def export_report(dupes: List[List[str]], formats: List[str] = ["csv", "json"], out_prefix: str = None, config_path: str = None, exec_time: float = None, progress_callback=None):
     config = load_config(config_path) if config_path else load_config()
     path_preference = config.get("path_preference", "shorter")
     filename_preference = config.get("filename_preference", None)
@@ -20,12 +20,20 @@ def export_report(dupes: List[List[str]], formats: List[str] = ["csv", "json"], 
     if out_prefix is None:
         out_prefix = output_base
     summary = []
-    for group_id, group in enumerate(dupes):
-        ranked = rank_duplicates(group, path_preference, filename_preference, quality_ranking)
-        master = ranked[0] if ranked else None
-        if not master or len(ranked) < 2:
-            continue
-        master_meta = get_image_metadata(master)
+    files_processed = 0
+    total_files = sum(len(group) for group in dupes)
+    
+    try:
+        for group_id, group in enumerate(dupes):
+            ranked = rank_duplicates(group, path_preference, filename_preference, quality_ranking)
+            master = ranked[0] if ranked else None
+            if not master or len(ranked) < 2:
+                continue
+            master_meta = get_image_metadata(master)
+            files_processed += 1
+            if progress_callback:
+                progress_callback(files_processed)
+        
         group_entry = {
             "group_id": group_id,
             "master": master,
@@ -59,6 +67,9 @@ def export_report(dupes: List[List[str]], formats: List[str] = ["csv", "json"], 
         
         for dup in ranked[1:]:
             dup_meta = get_image_metadata(dup)
+            files_processed += 1
+            if progress_callback:
+                progress_callback(files_processed)
             reasons = []
             
             # Hash-based comparison
@@ -133,8 +144,13 @@ def export_report(dupes: List[List[str]], formats: List[str] = ["csv", "json"], 
                 "xmp_keywords": dup_meta.get("xmp_keywords"),
                 "xmp_title": dup_meta.get("xmp_title"),
             })
-        summary.append(group_entry)
-
+            summary.append(group_entry)
+    
+    except KeyboardInterrupt:
+        log_action(f"Report generation interrupted by user. Processed {files_processed}/{total_files} files.")
+        print(f"\n⚠️  Report generation interrupted. Processed {files_processed}/{total_files} files.")
+        print("Partial report data will be saved with completed entries.")
+    
     # Write CSV output with more attributes
     if "csv" in formats:
         with open(f"{out_prefix}.csv", "w", newline="") as f:

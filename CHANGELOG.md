@@ -5,6 +5,42 @@ All notable changes to PhotoChomper will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.8] - 2025-09-05
+
+### Fixed
+- **Report Generation UX**: Fixed confusing "Search Completed!" message that appeared before expensive report generation
+  - Added clear progress tracking during report generation with detailed metadata extraction
+  - Changed completion message to "Generating detailed reports with metadata extraction..."
+  - Shows progress bar with file count and time remaining during report processing
+- **KeyboardInterrupt Handling**: Improved graceful shutdown during report generation
+  - Added proper KeyboardInterrupt handling in IPTC metadata extraction
+  - Allows users to interrupt report generation without crashes
+  - Saves partial report data when interrupted
+- **Error Recovery**: Enhanced error handling in metadata extraction operations
+  - Better exception handling for corrupted IPTC data
+  - Graceful fallbacks when metadata extraction fails
+
+### Added
+- **Progress Tracking for Reports**: Real-time progress indication during report generation
+  - Progress bar showing files processed and estimated time remaining
+  - Clear indication that metadata extraction is happening after duplicate detection
+  - File count tracking (processed/total) during report generation
+- **Graceful Interruption**: Users can now safely interrupt report generation
+  - KeyboardInterrupt properly handled and propagated where appropriate
+  - Partial reports saved when generation is interrupted
+
+### Changed
+- **TUI Messaging**: More accurate status messages during different processing phases
+  - "Search Completed!" now only appears after both duplicate detection AND report generation
+  - Clear distinction between duplicate detection and report generation phases
+  - Better user understanding of what's happening during long operations
+
+### Technical Details
+- Modified export_report() function to accept progress_callback parameter
+- Added progress tracking throughout report generation loop
+- Enhanced IPTC metadata extraction with proper exception handling
+- Improved user experience during large collection report generation
+
 ## [3.1.7] - 2025-09-05
 
 ### Added

@@ -1028,15 +1028,24 @@ def get_image_metadata(filepath: str) -> Dict[str, Any]:
                 with suppress_stdout_stderr():
                     info = iptcinfo3.IPTCInfo(filepath)
                 if info:
-                    meta["iptc_keywords"] = (
-                        info["keywords"] if "keywords" in info else []
-                    )
-                    meta["iptc_caption"] = (
-                        info["caption/abstract"] if "caption/abstract" in info else ""
-                    )
-                    meta["iptc_copyright"] = (
-                        info["copyright notice"] if "copyright notice" in info else ""
-                    )
+                    try:
+                        meta["iptc_keywords"] = (
+                            info["keywords"] if "keywords" in info else []
+                        )
+                        meta["iptc_caption"] = (
+                            info["caption/abstract"] if "caption/abstract" in info else ""
+                        )
+                        meta["iptc_copyright"] = (
+                            info["copyright notice"] if "copyright notice" in info else ""
+                        )
+                    except KeyboardInterrupt:
+                        # Re-raise KeyboardInterrupt to allow graceful shutdown
+                        raise
+                    except Exception as e:
+                        log_action(f"Error extracting IPTC fields for {filepath}: {e}")
+                        meta["iptc_keywords"] = []
+                        meta["iptc_caption"] = ""
+                        meta["iptc_copyright"] = ""
             except Exception as e:
                 log_action(f"Error reading IPTC for {filepath}: {e}")
 

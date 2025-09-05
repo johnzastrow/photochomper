@@ -499,15 +499,39 @@ def run_search(config: dict, config_path: str = None):
             f"[bold cyan]⏱️  Total execution time: {format_time(exec_time)}[/bold cyan]\n"
         )
 
-        # Export reports
-        console.print("[bold blue]📄 Exporting reports...[/bold blue]")
-        export_report(
-            dupes,
-            formats=["csv", "json", "sqlite"],
-            config_path=config.get("config_file", config_path),
-            exec_time=exec_time,
-        )
-        console.print("[bold green]✅ Reports exported:[/bold green]")
+        # Export reports with progress tracking
+        console.print("[bold blue]📄 Generating detailed reports with metadata extraction...[/bold blue]")
+        
+        # Calculate total files for progress tracking
+        total_report_files = sum(len(group) for group in dupes)
+        
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TextColumn("({task.completed}/{task.total} files)"),
+            TimeRemainingColumn(),
+            console=console,
+            transient=False,
+        ) as progress:
+            report_task = progress.add_task(
+                "📊 Processing files for reports", total=total_report_files
+            )
+            
+            # Define progress callback
+            def report_progress_callback(completed: int):
+                progress.update(report_task, completed=completed)
+            
+            export_report(
+                dupes,
+                formats=["csv", "json", "sqlite"],
+                config_path=config.get("config_file", config_path),
+                exec_time=exec_time,
+                progress_callback=report_progress_callback,
+            )
+        
+        console.print("[bold green]✅ Reports exported successfully:[/bold green]")
         console.print("   • duplicates_report.csv (spreadsheet format)")
         console.print("   • duplicates_report.json (structured data)")
         console.print("   • duplicates_report.db (SQLite database with analytics)")

@@ -14,11 +14,12 @@ Current version reflects the enhanced v3.0+ features with:
 - LSH-optimized similarity detection
 """
 
-__version__ = "3.1.7"
-__version_info__ = (3, 1, 7)
+__version__ = "3.1.8"
+__version_info__ = (3, 1, 8)
 
 # Version history tracking
 VERSION_HISTORY = [
+    "3.1.8 - Fixed report generation UX with progress tracking and improved KeyboardInterrupt handling",
     "3.1.7 - Enhanced file format support (HEIF/HEIC), improved error handling, and better metadata extraction",
     "3.1.6 - Fixed HashCache comparison error with proper type validation and error handling",
     "3.1.5 - Fixed HashCache comparison error and improved error handling analysis",

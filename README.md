@@ -2,7 +2,7 @@
 
 PhotoChomper is a high-performance Python tool for managing massive photo collections (200K+ files) by identifying duplicate images and videos with revolutionary speed optimizations. Version 3.1+ delivers 100-1000x performance improvements through advanced algorithmic innovations, enhanced progress tracking, and intelligent memory management, making it possible to process massive collections in minutes with real-time feedback.
 
-##  Version 3.1.7+ Enhanced File Format Support & Reliability
+##  Version 3.1.8+ Improved User Experience & Reliability
 
 - **Robust Error Handling** - Fixed HashCache comparison errors for stable processing
 - **Comprehensive Testing Framework** - Version-specific tests with regression prevention
@@ -41,7 +41,7 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
     - [** Advanced Reporting**](#-advanced-reporting)
     - [** Smart Configuration & Scaling**](#️-smart-configuration--scaling)
   - [Recent Updates](#recent-updates)
-    - [**Version 3.1.7** - Enhanced File Format Support & Reliability](#version-317---enhanced-file-format-support--reliability)
+    - [**Version 3.1.8** - Improved User Experience & Reliability](#version-318---improved-user-experience--reliability)
     - [**Version 3.1.0** - Enhanced Progress Tracking & User Experience](#version-310---enhanced-progress-tracking--user-experience)
     - [**Version 3.0** - Performance Revolution](#version-30---performance-revolution)
     - [**Version 2.0** - Enhanced User Experience](#version-20---enhanced-user-experience)
@@ -143,20 +143,18 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
 
 ## Recent Updates
 
-### **Version 3.1.7** - Enhanced File Format Support & Reliability
-**Extended file format support with improved error handling and metadata extraction:**
-- 🆕 **HEIF/HEIC Support**: Full support for Apple's HEIC and HEIF formats with automatic pillow-heif integration
-- 🆕 **Enhanced Error Suppression**: New suppress_stdout_stderr() context manager silences noisy library output
-- ✅ **Extended File Types**: Better handling of additional image/video formats and RAW camera files
-- ✅ **Improved IPTC Metadata**: Enhanced extraction with better error recovery and dictionary access patterns
-- ✅ **Code Documentation**: Extensive comments and improved maintainability throughout scanner.py
-- ✅ **Dependency Management**: Better organization of optional dependencies with graceful fallbacks
+### **Version 3.1.8** - Improved User Experience & Reliability
+**Enhanced user experience with better progress feedback and error handling:**
+- 🆕 **Clear Progress Feedback**: Fixed confusing "Search Completed!" message - now shows accurate progress during report generation
+- 🆕 **Report Generation Progress**: Real-time progress bar during metadata extraction with file count and time estimates
+- ✅ **Graceful Interruption**: Users can safely interrupt report generation with Ctrl+C without crashes
+- ✅ **Enhanced Error Recovery**: Improved KeyboardInterrupt handling and IPTC metadata error recovery
+- ✅ **Better Status Messages**: Clear distinction between duplicate detection and report generation phases
 
-### **Version 3.1.6** - Critical HashCache Fix
-**Resolved persistent HashCache comparison errors:**
-- ✅ **Type Safety**: Added comprehensive type validation in HashCache.get_cached_hash method
-- ✅ **Error Recovery**: Graceful handling of corrupted database data and invalid file stats
-- ✅ **Enhanced Testing**: Created comprehensive test suite with regression prevention
+### **Previous Major Versions:**
+- **v3.1.7** - HEIF/HEIC file support and enhanced error suppression
+- **v3.1.6** - Critical HashCache comparison error fix with type validation
+- **v3.1.5** - Comprehensive testing framework with regression prevention
 
 ### **Version 3.1.0** - Enhanced Progress Tracking & User Experience 
 **Advanced progress monitoring and intelligent memory optimization:**
