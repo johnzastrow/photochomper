@@ -645,6 +645,18 @@ def compute_perceptual_hash(
 
     Note: 'cache' is keyword-only to prevent accidental positional misuse.
     """
+    # --- Prevent video files from being hashed as images ---
+    if get_file_type(filepath) != FileType.IMAGE:
+        return HashResult(
+            algorithm,
+            "",
+            filepath,
+            get_file_type(filepath),
+            sha256_file(filepath),
+            0.0,
+            "Not an image file; skipping perceptual hash.",
+        )
+
     if not Image or not imagehash:
         return HashResult(
             algorithm,
@@ -1033,10 +1045,14 @@ def get_image_metadata(filepath: str) -> Dict[str, Any]:
                             info["keywords"] if "keywords" in info else []
                         )
                         meta["iptc_caption"] = (
-                            info["caption/abstract"] if "caption/abstract" in info else ""
+                            info["caption/abstract"]
+                            if "caption/abstract" in info
+                            else ""
                         )
                         meta["iptc_copyright"] = (
-                            info["copyright notice"] if "copyright notice" in info else ""
+                            info["copyright notice"]
+                            if "copyright notice" in info
+                            else ""
                         )
                     except KeyboardInterrupt:
                         # Re-raise KeyboardInterrupt to allow graceful shutdown
@@ -1520,11 +1536,13 @@ def find_similarity_duplicates_optimized(
     processed_files = 0
     cached_hits = 0
 
-    for i in range(0, len(unique_files), similarity_chunk_size):
-        chunk_files = unique_files[i : i + similarity_chunk_size]
+    # --- Only process image files for perceptual hashing ---
+    image_files = [f for f in unique_files if get_file_type(f) == FileType.IMAGE]
+
+    for i in range(0, len(image_files), similarity_chunk_size):
+        chunk_files = image_files[i : i + similarity_chunk_size]
         chunk_hash_results = []
 
-        # Always pass cache as keyword argument
         def _compute(fp):
             return compute_perceptual_hash(fp, algorithm=algorithm, cache=cache)
 
@@ -1538,19 +1556,21 @@ def find_similarity_duplicates_optimized(
         all_hash_results.extend(chunk_hash_results)
         processed_files += len(chunk_files)
         current_memory = MemoryStats.current()
-        progress_pct = (processed_files / len(unique_files)) * 100
+        progress_pct = (
+            (processed_files / len(image_files)) * 100 if image_files else 100
+        )
         cache_hit_pct = (
             (cached_hits / processed_files) * 100 if processed_files > 0 else 0
         )
         elapsed_time = time.time() - phase_start
         if processed_files > 0:
-            estimated_total = (elapsed_time / processed_files) * len(unique_files)
+            estimated_total = (elapsed_time / processed_files) * len(image_files)
             estimated_remaining = max(0.0, estimated_total - elapsed_time)
         else:
             estimated_remaining = 0.0
 
         log_action(
-            f"Similarity Progress: {processed_files}/{len(unique_files)} files ({progress_pct:.1f}%), "
+            f"Similarity Progress: {processed_files}/{len(image_files)} files ({progress_pct:.1f}%), "
             f"Cache hits: {cache_hit_pct:.1f}%, Memory: {current_memory.percent_used:.1f}%, ETA: {estimated_remaining:.1f}s"
         )
 
@@ -1559,10 +1579,10 @@ def find_similarity_duplicates_optimized(
                 ProgressStats(
                     "Similarity Hashing",
                     i // similarity_chunk_size + 1,
-                    (len(unique_files) + similarity_chunk_size - 1)
+                    (len(image_files) + similarity_chunk_size - 1)
                     // similarity_chunk_size,
                     processed_files,
-                    len(unique_files),
+                    len(image_files),
                     start_time,
                     time.time(),
                 )
@@ -1592,8 +1612,8 @@ def find_similarity_duplicates_optimized(
     hash_results_dict = {result.file_path: result for result in all_hash_results}
     cache.close()
     log_action(
-        f"Stage 2 complete: Found {len(duplicate_groups)} similarity groups from {len(unique_files)} unique files. "
-        f"Cache hit rate: {(cached_hits / len(unique_files)) * 100:.1f}%"
+        f"Stage 2 complete: Found {len(duplicate_groups)} similarity groups from {len(image_files)} unique image files. "
+        f"Cache hit rate: {(cached_hits / len(image_files)) * 100:.1f}%"
     )
     return duplicate_groups, hash_results_dict
 
