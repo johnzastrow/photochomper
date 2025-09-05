@@ -33,8 +33,10 @@ except ImportError:
 try:
     from PIL import Image
     import imagehash
+
     try:
         import pillow_heif
+
         pillow_heif.register_heif_opener()
     except ImportError:
         pass
@@ -78,6 +80,7 @@ except ImportError:
 # Try to import and register HEIF opener from pillow_heif if available
 try:
     import pillow_heif
+
     pillow_heif.register_heif_opener()
 except ImportError:
     pass
@@ -1025,9 +1028,15 @@ def get_image_metadata(filepath: str) -> Dict[str, Any]:
                 with suppress_stdout_stderr():
                     info = iptcinfo3.IPTCInfo(filepath)
                 if info:
-                    meta["iptc_keywords"] = info["keywords"] if "keywords" in info else []
-                    meta["iptc_caption"] = info["caption/abstract"] if "caption/abstract" in info else ""
-                    meta["iptc_copyright"] = info["copyright notice"] if "copyright notice" in info else ""
+                    meta["iptc_keywords"] = (
+                        info["keywords"] if "keywords" in info else []
+                    )
+                    meta["iptc_caption"] = (
+                        info["caption/abstract"] if "caption/abstract" in info else ""
+                    )
+                    meta["iptc_copyright"] = (
+                        info["copyright notice"] if "copyright notice" in info else ""
+                    )
             except Exception as e:
                 log_action(f"Error reading IPTC for {filepath}: {e}")
 
@@ -1834,15 +1843,16 @@ import contextlib
 import sys
 import os
 
+
 @contextlib.contextmanager
 def suppress_stdout_stderr():
-    with open(os.devnull, 'w') as devnull:
+    with open(os.devnull, "w") as devnull:
         old_stdout = sys.stdout
         old_stderr = sys.stderr
         sys.stdout = devnull
         sys.stderr = devnull
         try:
-            yieldas devnull:
+            yield
         finally:
-            sys.stdout = old_stdouterr
+            sys.stdout = old_stdout
             sys.stderr = old_stderr
