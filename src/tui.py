@@ -500,11 +500,13 @@ def run_search(config: dict, config_path: str = None):
         )
 
         # Export reports with progress tracking
-        console.print("[bold blue]📄 Generating detailed reports with metadata extraction...[/bold blue]")
-        
+        console.print(
+            "[bold blue]📄 Generating detailed reports with metadata extraction...[/bold blue]"
+        )
+
         # Calculate total files for progress tracking
         total_report_files = sum(len(group) for group in dupes)
-        
+
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -518,11 +520,11 @@ def run_search(config: dict, config_path: str = None):
             report_task = progress.add_task(
                 "📊 Processing files for reports", total=total_report_files
             )
-            
+
             # Define progress callback
             def report_progress_callback(completed: int):
                 progress.update(report_task, completed=completed)
-            
+
             export_report(
                 dupes,
                 formats=["csv", "json", "sqlite"],
@@ -530,7 +532,7 @@ def run_search(config: dict, config_path: str = None):
                 exec_time=exec_time,
                 progress_callback=report_progress_callback,
             )
-        
+
         console.print("[bold green]✅ Reports exported successfully:[/bold green]")
         console.print("   • duplicates_report.csv (spreadsheet format)")
         console.print("   • duplicates_report.json (structured data)")
@@ -1067,4 +1069,24 @@ def interactive_duplicate_review(
                             .lower()
                         )
                         if confirm in ("y", "yes"):
-                         
+                            pass  # TODO: implement move logic here
+                    except Exception as e:
+                        console.print(f"[red]Error selecting move directory: {e}[/red]")
+                        continue
+
+                break  # Move on to the next group
+
+    # Final action confirmation
+    if selected_actions:
+        console.print(f"\n[bold green]✅ Actions Queued:[/bold green]")
+        for action in selected_actions:
+            console.print(f"  • {action.action_type.name} - {action.source_path}")
+    else:
+        console.print("[dim]No actions selected.[/dim]")
+
+    return selected_actions, True
+
+
+def tui_list_setup():
+    # TODO: Implement this function
+    pass
