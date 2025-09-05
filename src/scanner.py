@@ -183,7 +183,8 @@ class HashCache:
     def get_cached_hash(
         self, filepath: str, algorithm: HashAlgorithm
     ) -> Optional[HashResult]:
-        """Return a HashResult if cache contains a valid, up-to-date entry for filepath+algorithm.
+        """
+        Return a HashResult if cache contains a valid, up-to-date entry for filepath+algorithm.
 
         Validation:
         - Ensures cached file_size and file_mtime match current file stats (mtime tolerance 1s).
@@ -195,12 +196,10 @@ class HashCache:
             return None
 
         try:
-            # Get current file stats; if file doesn't exist, treat as cache miss.
             stat = os.stat(filepath)
             file_size = stat.st_size
             file_mtime = stat.st_mtime
 
-            # Query cache for matching filepath and algorithm
             cursor = conn.execute(
                 """
                 SELECT sha256_hash, perceptual_hash, file_size, file_mtime 
@@ -212,11 +211,27 @@ class HashCache:
 
             row = cursor.fetchone()
             if row:
-                # Defensive unpack and validation to prevent type-comparison errors.
                 try:
                     cached_sha256, cached_perceptual, cached_size, cached_mtime = row
 
-                    # Ensure we received numeric types from the DB for size/mtime comparison.
+                    # --- FIX: Convert to correct types if needed ---
+                    if isinstance(cached_size, str):
+                        try:
+                            cached_size = int(cached_size)
+                        except Exception:
+                            log_action(
+                                f"Invalid cached size for {filepath}: {cached_size}"
+                            )
+                            return None
+                    if isinstance(cached_mtime, str):
+                        try:
+                            cached_mtime = float(cached_mtime)
+                        except Exception:
+                            log_action(
+                                f"Invalid cached mtime for {filepath}: {cached_mtime}"
+                            )
+                            return None
+
                     if not isinstance(cached_size, (int, float)) or not isinstance(
                         cached_mtime, (int, float)
                     ):
@@ -233,7 +248,6 @@ class HashCache:
                         )
                         return None
 
-                    # Consider the cache valid if size unchanged and mtime within 1 second.
                     if (
                         cached_size == file_size
                         and abs(cached_mtime - file_mtime) < 1.0
@@ -247,7 +261,6 @@ class HashCache:
                             similarity_score=0.0,
                         )
                 except Exception as inner_e:
-                    # If parsing cached data failed, treat as cache miss and log to aid debugging.
                     log_action(
                         f"Error processing cached data for {filepath}: {inner_e}"
                     )
@@ -257,12 +270,11 @@ class HashCache:
         finally:
             if conn:
                 conn.close()
-
-        # Cache miss or invalid entry
         return None
 
     def cache_hash(self, result: HashResult):
-        """Insert or update the cache with HashResult for the given file.
+        """
+        Insert or update the cache with HashResult for the given file.
 
         Always stores current file size and mtime so subsequent runs can validate cache entries.
         """
@@ -274,6 +286,11 @@ class HashCache:
             return
 
         try:
+            # --- FIX: Only cache if file exists ---
+            if not os.path.exists(result.file_path):
+                log_action(f"File does not exist, not caching: {result.file_path}")
+                return
+
             stat = os.stat(result.file_path)
             import time
 
@@ -285,8 +302,8 @@ class HashCache:
             """,
                 (
                     result.file_path,
-                    stat.st_size,
-                    stat.st_mtime,
+                    int(stat.st_size),
+                    float(stat.st_mtime),
                     result.algorithm.value,
                     result.sha256_hash,
                     result.hash_value,
@@ -295,7 +312,6 @@ class HashCache:
             )
             conn.commit()
         except Exception as e:
-            # Failures here should not stop scanning; just log and continue.
             log_action(f"Error caching hash for {result.file_path}: {e}")
         finally:
             if conn:
@@ -609,14 +625,12 @@ def compute_perceptual_hash(
     hash_size: int = 8,
     cache: Optional[HashCache] = None,
 ) -> HashResult:
-    """Compute a perceptual hash for an image with optional caching.
+    """
+    Compute a perceptual hash for an image with optional caching.
 
-    Important: `cache` is keyword-only to avoid accidentally passing a HashCache
-    instance as a positional argument (which previously caused type-comparison errors).
-    Returns a HashResult containing both sha256 and perceptual hash where available.
+    Note: 'cache' is keyword-only to prevent accidental positional misuse.
     """
     if not Image or not imagehash:
-        # If required libs are missing, return an error HashResult so caller can handle gracefully.
         return HashResult(
             algorithm,
             "",
@@ -627,7 +641,7 @@ def compute_perceptual_hash(
             "PIL/imagehash not available",
         )
 
-    # Try using cache to avoid recomputation for unchanged files.
+    # Always use cache as keyword argument
     if cache:
         try:
             cached_result = cache.get_cached_hash(filepath, algorithm)
@@ -638,14 +652,10 @@ def compute_perceptual_hash(
             return cached_result
 
     try:
-        # Compute SHA256 first (cheap and used for exact dedupe)
         sha256_hash = sha256_file(filepath)
-
-        # Open image and normalize mode before calling imagehash functions
         with Image.open(filepath) as img:
             if img.mode not in ("L", "RGB"):
                 img = img.convert("RGB")
-            # Select hashing function based on requested algorithm
             if algorithm == HashAlgorithm.DHASH:
                 h = imagehash.dhash(img, hash_size)
             elif algorithm == HashAlgorithm.PHASH:
@@ -655,25 +665,18 @@ def compute_perceptual_hash(
             elif algorithm == HashAlgorithm.WHASH:
                 h = imagehash.whash(img, hash_size)
             else:
-                # Defensive fallback
                 h = imagehash.dhash(img, hash_size)
-
-            hexhash = h.__str__()  # imagehash Hash object -> hex string
+            hexhash = h.__str__()
             result = HashResult(
                 algorithm, hexhash, filepath, FileType.IMAGE, sha256_hash, 0.0, None
             )
-
-            # Store result in cache to speed up future runs
             if cache:
                 try:
                     cache.cache_hash(result)
                 except Exception as e:
-                    # Non-fatal; log and continue
                     log_action(f"Cache store error for {filepath}: {e}")
-
             return result
     except Exception as e:
-        # Return an error result while preserving any sha256 already computed.
         log_action(f"Error computing {algorithm.value} hash for {filepath}: {e}")
         return HashResult(
             algorithm,
@@ -900,17 +903,11 @@ def calculate_hash_similarity(
 
 
 def get_image_metadata(filepath: str) -> Dict[str, Any]:
-    """Extract file metadata for ranking/quality heuristics.
-
-    This function aggregates:
-    - Basic filesystem timestamps and size
-    - Image dimensions, format, and EXIF (where available)
-    - Video stream metadata via ffmpeg.probe
-    - IPTC and XMP tags if libraries are installed
+    """
+    Extract file metadata for ranking/quality heuristics.
     """
     meta = {}
     try:
-        # Basic filesystem metadata used by ranking heuristics
         meta = {
             "created": os.path.getctime(filepath),
             "modified": os.path.getmtime(filepath),
@@ -919,11 +916,8 @@ def get_image_metadata(filepath: str) -> Dict[str, Any]:
             "path": filepath,
             "file_type": get_file_type(filepath).value,
         }
-
         file_type = get_file_type(filepath)
-
         if file_type == FileType.IMAGE:
-            # Image-specific metadata extraction
             try:
                 if Image:
                     with Image.open(filepath) as img:
@@ -931,23 +925,17 @@ def get_image_metadata(filepath: str) -> Dict[str, Any]:
                         meta["height"] = img.height
                         meta["mode"] = img.mode
                         meta["format"] = img.format
-
-                        # Use PIL EXIF if available (returns numeric tags)
                         if hasattr(img, "_getexif") and img._getexif():
                             exif_dict = img._getexif()
                             meta["exif_data"] = exif_dict
-
-                            # Map some common EXIF tag keys (numeric) to friendly names
-                            if 272 in exif_dict:  # Make
+                            if 272 in exif_dict:
                                 meta["camera_make"] = exif_dict[272]
-                            if 271 in exif_dict:  # Model
+                            if 271 in exif_dict:
                                 meta["camera_model"] = exif_dict[271]
-                            if 306 in exif_dict:  # DateTime
+                            if 306 in exif_dict:
                                 meta["date_taken"] = exif_dict[306]
-                            if 34853 in exif_dict:  # GPS Info
+                            if 34853 in exif_dict:
                                 meta["gps_info"] = exif_dict[34853]
-
-                # Use exifread to get stringified tag output if available (more complete)
                 if exifread:
                     with open(filepath, "rb") as f:
                         tags = exifread.process_file(f)
@@ -955,26 +943,20 @@ def get_image_metadata(filepath: str) -> Dict[str, Any]:
                             meta["exif_tags"] = {
                                 str(key): str(tags[key]) for key in tags.keys()
                             }
-
             except Exception as e:
                 log_action(f"Error reading image metadata for {filepath}: {e}")
 
         elif file_type == FileType.VIDEO:
-            # Video-specific metadata using ffmpeg.probe where available.
             try:
                 if ffmpeg:
                     probe = ffmpeg.probe(filepath)
-
-                    # Identify streams; prefer first video and audio streams
                     video_stream = None
                     audio_stream = None
-
                     for stream in probe.get("streams", []):
                         if stream["codec_type"] == "video" and not video_stream:
                             video_stream = stream
                         elif stream["codec_type"] == "audio" and not audio_stream:
                             audio_stream = stream
-
                     if video_stream:
                         meta["duration"] = float(video_stream.get("duration", 0))
                         meta["width"] = int(video_stream.get("width", 0))
@@ -983,8 +965,6 @@ def get_image_metadata(filepath: str) -> Dict[str, Any]:
                         meta["video_bitrate"] = int(video_stream.get("bit_rate", 0))
                         meta["fps"] = video_stream.get("r_frame_rate", "")
                         meta["pixel_format"] = video_stream.get("pix_fmt", "")
-
-                        # Categorize by resolution for ranking decisions
                         width = meta["width"]
                         height = meta["height"]
                         if width >= 3840 and height >= 2160:
@@ -997,24 +977,18 @@ def get_image_metadata(filepath: str) -> Dict[str, Any]:
                             meta["resolution_category"] = "480p"
                         else:
                             meta["resolution_category"] = "SD"
-
                     if audio_stream:
                         meta["audio_codec"] = audio_stream.get("codec_name", "")
                         meta["audio_bitrate"] = int(audio_stream.get("bit_rate", 0))
                         meta["audio_channels"] = int(audio_stream.get("channels", 0))
                         meta["sample_rate"] = int(audio_stream.get("sample_rate", 0))
-
-                    # Container-level metadata
                     if "format" in probe:
                         format_info = probe["format"]
                         meta["container_format"] = format_info.get("format_name", "")
                         meta["total_bitrate"] = int(format_info.get("bit_rate", 0))
-
                         if "tags" in format_info:
                             tags = format_info["tags"]
                             meta["video_tags"] = tags
-
-                            # Map common tag names to friendly metadata keys
                             tag_mapping = {
                                 "title": "video_title",
                                 "artist": "video_artist",
@@ -1025,28 +999,31 @@ def get_image_metadata(filepath: str) -> Dict[str, Any]:
                                 "genre": "video_genre",
                                 "encoder": "video_encoder",
                             }
-
                             for tag_key, meta_key in tag_mapping.items():
                                 if tag_key in tags:
                                     meta[meta_key] = tags[tag_key]
                                 elif tag_key.upper() in tags:
                                     meta[meta_key] = tags[tag_key.upper()]
-
             except Exception as e:
                 log_action(f"Error reading video metadata for {filepath}: {e}")
 
-        # Optional IPTC (images)
+        # --- FIX: IPTCInfo3 .get() -> dict access ---
         if file_type == FileType.IMAGE and iptcinfo3 is not None:
             try:
                 info = iptcinfo3.IPTCInfo(filepath)
                 if info:
-                    meta["iptc_keywords"] = info.get("keywords", [])
-                    meta["iptc_caption"] = info.get("caption/abstract", "")
-                    meta["iptc_copyright"] = info.get("copyright notice", "")
+                    meta["iptc_keywords"] = (
+                        info["keywords"] if "keywords" in info else []
+                    )
+                    meta["iptc_caption"] = (
+                        info["caption/abstract"] if "caption/abstract" in info else ""
+                    )
+                    meta["iptc_copyright"] = (
+                        info["copyright notice"] if "copyright notice" in info else ""
+                    )
             except Exception as e:
                 log_action(f"Error reading IPTC for {filepath}: {e}")
 
-        # Optional XMP (images)
         if file_type == FileType.IMAGE and libxmp is not None:
             try:
                 xmpfile = XMPFiles(file_path=filepath)
@@ -1507,57 +1484,39 @@ def find_similarity_duplicates_optimized(
     total_stages: int = 2,
     total_files: int = 0,
 ) -> Tuple[List[List[str]], Dict[str, "HashResult"]]:
-    """Stage 2: compute perceptual hashes (with caching) and group similar files.
-
-    This function:
-    - Uses a HashCache instance to avoid recomputation across runs
-    - Processes unique files in manageable sub-chunks
-    - Optionally dispatches to an LSH-based grouping for very large sets
+    """
+    Stage 2: compute perceptual hashes (with caching) and group similar files.
     """
     phase_start = time.time()
-
-    # Initialize cache (local to this stage) and prune old entries to keep DB small
     cache = HashCache()
-    cache.cleanup_old_entries(30)  # Clean up old entries
-
-    # Lower chunk size for hashing stage to reduce memory pressure
+    cache.cleanup_old_entries(30)
     similarity_chunk_size = min(max(1, chunk_size // 2), 1000)
     all_hash_results = []
     processed_files = 0
     cached_hits = 0
 
-    # Iterate over file batches and compute perceptual hashes in parallel
     for i in range(0, len(unique_files), similarity_chunk_size):
         chunk_files = unique_files[i : i + similarity_chunk_size]
         chunk_hash_results = []
 
-        # We define a small wrapper here to ensure cache and algorithm are passed as keywords.
-        # This prevents the historical bug where a HashCache instance was passed positionally
-        # and accidentally compared with ints inside the function.
+        # Always pass cache as keyword argument
+        def _compute(fp):
+            return compute_perceptual_hash(fp, algorithm=algorithm, cache=cache)
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-
-            def _compute(fp):
-                return compute_perceptual_hash(fp, algorithm=algorithm, cache=cache)
-
-            # executor.map returns results in order; iterate and collect valid results.
             for res in executor.map(_compute, chunk_files):
                 if res:
                     chunk_hash_results.append(res)
-                    # Note: cached_hits calculation could be enhanced if cache exposes metadata.
-                    # For now we conservatively leave cached_hits unchanged.
                     if res.error is None and cache:
                         pass
 
         all_hash_results.extend(chunk_hash_results)
         processed_files += len(chunk_files)
-
         current_memory = MemoryStats.current()
         progress_pct = (processed_files / len(unique_files)) * 100
         cache_hit_pct = (
             (cached_hits / processed_files) * 100 if processed_files > 0 else 0
         )
-
-        # Estimate ETA for UX
         elapsed_time = time.time() - phase_start
         if processed_files > 0:
             estimated_total = (elapsed_time / processed_files) * len(unique_files)
@@ -1584,7 +1543,6 @@ def find_similarity_duplicates_optimized(
                 )
             )
 
-        # If memory gets high, force GC and yield processor briefly to lower pressure
         if current_memory.percent_used > 80:
             log_action(
                 "High memory usage during similarity hashing, forcing a GC and brief sleep"
@@ -1597,7 +1555,6 @@ def find_similarity_duplicates_optimized(
             except Exception:
                 pass
 
-    # Choose grouping strategy: LSH for large datasets, brute-force for smaller ones.
     if len(all_hash_results) > 1000:
         duplicate_groups = find_similarity_groups_lsh(
             all_hash_results, threshold, algorithm
@@ -1607,17 +1564,12 @@ def find_similarity_duplicates_optimized(
             all_hash_results, threshold, algorithm
         )
 
-    # Build a dict for fast lookup of hash results by file path
     hash_results_dict = {result.file_path: result for result in all_hash_results}
-
-    # Close cache (no-op) - left for API symmetry
     cache.close()
-
     log_action(
         f"Stage 2 complete: Found {len(duplicate_groups)} similarity groups from {len(unique_files)} unique files. "
         f"Cache hit rate: {(cached_hits / len(unique_files)) * 100:.1f}%"
     )
-
     return duplicate_groups, hash_results_dict
 
 
