@@ -19,4 +19,5 @@ dependencies = [
     "python-xmp-toolkit>=2.0.2",
     "pyinstaller>=6.15.0",
     "altgraph>=0.17.4",
+    "pillow-heif>=1.1.0",
 ]

@@ -33,6 +33,11 @@ except ImportError:
 try:
     from PIL import Image
     import imagehash
+    try:
+        import pillow_heif
+        pillow_heif.register_heif_opener()
+    except ImportError:
+        pass
 except ImportError:
     Image = None
     imagehash = None
@@ -69,6 +74,13 @@ try:
     import exifread
 except ImportError:
     exifread = None
+
+# Try to import and register HEIF opener from pillow_heif if available
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+except ImportError:
+    pass
 
 # Constants used by the module
 BACKUP_DIR = "photochomper_backup"
