@@ -20,6 +20,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any
 import argparse
+
 try:
     import iptcinfo3  # For IPTC tags
 except ImportError:
@@ -50,10 +51,12 @@ LOG_FILE = "photochomper.log"
 CONFIG_FILE = "photochomper_config.json"
 BACKUP_DIR = "photochomper_backup"
 
+
 # Log actions and errors to a log file
 def log_action(message: str):
     with open(LOG_FILE, "a") as f:
         f.write(f"{datetime.now().isoformat()} {message}\n")
+
 
 # Load configuration from JSON file
 def load_config(config_path=CONFIG_FILE) -> Dict[str, Any]:
@@ -66,6 +69,7 @@ def load_config(config_path=CONFIG_FILE) -> Dict[str, Any]:
         log_action(f"Error loading config: {e}")
         return {}
 
+
 # Save configuration to JSON file
 def save_config(config: Dict[str, Any], config_path=CONFIG_FILE):
     try:
@@ -73,6 +77,7 @@ def save_config(config: Dict[str, Any], config_path=CONFIG_FILE):
             json.dump(config, f, indent=2)
     except Exception as e:
         log_action(f"Error saving config: {e}")
+
 
 # Compute SHA-256 hash of a file for duplicate detection
 def sha256_file(filepath: str) -> str:
@@ -85,6 +90,7 @@ def sha256_file(filepath: str) -> str:
     except Exception as e:
         log_action(f"Error hashing file {filepath}: {e}")
         return ""
+
 
 # Get basic metadata for a file (creation/modification time, size, name, path)
 def get_image_metadata(filepath: str) -> Dict[str, Any]:
@@ -102,8 +108,8 @@ def get_image_metadata(filepath: str) -> Dict[str, Any]:
             try:
                 info = iptcinfo3.IPTCInfo(filepath)
                 if info:
-                    meta["iptc_keywords"] = info['keywords']
-                    meta["iptc_caption"] = info['caption/abstract']
+                    meta["iptc_keywords"] = info["keywords"]
+                    meta["iptc_caption"] = info["caption/abstract"]
             except Exception as e:
                 log_action(f"Error reading IPTC for {filepath}: {e}")
         # XMP tags
@@ -112,8 +118,12 @@ def get_image_metadata(filepath: str) -> Dict[str, Any]:
                 xmpfile = XMPFiles(file_path=filepath)
                 xmp = xmpfile.get_xmp()
                 if xmp:
-                    meta["xmp_keywords"] = xmp.get_property(libxmp.consts.XMP_NS_DC, 'subject')
-                    meta["xmp_title"] = xmp.get_property(libxmp.consts.XMP_NS_DC, 'title')
+                    meta["xmp_keywords"] = xmp.get_property(
+                        libxmp.consts.XMP_NS_DC, "subject"
+                    )
+                    meta["xmp_title"] = xmp.get_property(
+                        libxmp.consts.XMP_NS_DC, "title"
+                    )
                 xmpfile.close_file()
             except Exception as e:
                 log_action(f"Error reading XMP for {filepath}: {e}")
@@ -121,10 +131,12 @@ def get_image_metadata(filepath: str) -> Dict[str, Any]:
         log_action(f"Error reading metadata for {filepath}: {e}")
     return meta
 
+
 # Check if a file matches the allowed image types
 def is_image_file(filename: str, types: List[str]) -> bool:
     ext = Path(filename).suffix.lower().lstrip(".")
     return ext in [t.lower().lstrip(".") for t in types]
+
 
 # Backup a file before deletion (not currently used in main flow)
 def backup_file(filepath: str):
@@ -138,8 +150,14 @@ def backup_file(filepath: str):
     except Exception as e:
         log_action(f"Error backing up {filepath}: {e}")
 
+
 # Find duplicate files by SHA-256 hash
-def find_duplicates(dirs: List[str], types: List[str], exclude_dirs: List[str], similarity_threshold: float = 1.0) -> List[List[str]]:
+def find_duplicates(
+    dirs: List[str],
+    types: List[str],
+    exclude_dirs: List[str],
+    similarity_threshold: float = 1.0,
+) -> List[List[str]]:
     files = []
     # Recursively scan directories for image files
     for d in dirs:
@@ -158,28 +176,54 @@ def find_duplicates(dirs: List[str], types: List[str], exclude_dirs: List[str], 
     # Only return groups with more than one file (duplicates)
     return [group for group in hash_map.values() if len(group) > 1]
 
+
 # Rank duplicates according to user preferences (filename/path length, modified date)
-def rank_duplicates(dupe_group: List[str], path_preference: str = "shorter", filename_preference: str = None) -> List[str]:
+def rank_duplicates(
+    dupe_group: List[str],
+    path_preference: str = "shorter",
+    filename_preference: str = None,
+) -> List[str]:
     metas = [get_image_metadata(f) for f in dupe_group]
     metas = [m for m in metas if m]  # Remove failed metadata
 
     # Sort by filename length if specified, then by path length, then by modified date
     if filename_preference == "longer":
-        metas.sort(key=lambda m: (-len(m.get("name", "")), -len(m.get("path", "")), -m.get("modified", 0)))
+        metas.sort(
+            key=lambda m: (
+                -len(m.get("name", "")),
+                -len(m.get("path", "")),
+                -m.get("modified", 0),
+            )
+        )
     elif filename_preference == "shorter":
-        metas.sort(key=lambda m: (len(m.get("name", "")), -len(m.get("path", "")), -m.get("modified", 0)))
+        metas.sort(
+            key=lambda m: (
+                len(m.get("name", "")),
+                -len(m.get("path", "")),
+                -m.get("modified", 0),
+            )
+        )
     elif path_preference == "longer":
         metas.sort(key=lambda m: (len(m.get("path", "")), -m.get("modified", 0)))
     else:  # shorter path
         metas.sort(key=lambda m: (-len(m.get("path", "")), -m.get("modified", 0)))
     return [m["path"] for m in metas]
 
+
 # Export duplicate report to CSV and JSON formats
-def export_report(dupes: List[List[str]], formats: List[str] = ["csv", "json"], out_prefix: str = None, config_path: str = None, exec_time: float = None):
+def export_report(
+    dupes: List[List[str]],
+    formats: List[str] = ["csv", "json"],
+    out_prefix: str = None,
+    config_path: str = None,
+    exec_time: float = None,
+):
     config = load_config(config_path) if config_path else load_config()
     path_preference = config.get("path_preference", "shorter")  # <-- Add this
     filename_preference = config.get("filename_preference", None)  # <-- And this
-    output_base = config.get("output_base", os.path.join(os.getcwd(), "duplicates_report"))
+    output_base = config.get(
+        "output_base", os.path.join(os.getcwd(), "duplicates_report")
+    )
     if out_prefix is None:
         out_prefix = output_base
     summary = []
@@ -221,69 +265,109 @@ def export_report(dupes: List[List[str]], formats: List[str] = ["csv", "json"], 
             if dup_meta.get("modified") == master_meta.get("modified"):
                 reasons.append("modified")
             # IPTC/XMP tag comparison
-            if dup_meta.get("iptc_keywords") and master_meta.get("iptc_keywords") and dup_meta.get("iptc_keywords") == master_meta.get("iptc_keywords"):
+            if (
+                dup_meta.get("iptc_keywords")
+                and master_meta.get("iptc_keywords")
+                and dup_meta.get("iptc_keywords") == master_meta.get("iptc_keywords")
+            ):
                 reasons.append("iptc_keywords")
-            if dup_meta.get("iptc_caption") and master_meta.get("iptc_caption") and dup_meta.get("iptc_caption") == master_meta.get("iptc_caption"):
+            if (
+                dup_meta.get("iptc_caption")
+                and master_meta.get("iptc_caption")
+                and dup_meta.get("iptc_caption") == master_meta.get("iptc_caption")
+            ):
                 reasons.append("iptc_caption")
-            if dup_meta.get("xmp_keywords") and master_meta.get("xmp_keywords") and dup_meta.get("xmp_keywords") == master_meta.get("xmp_keywords"):
+            if (
+                dup_meta.get("xmp_keywords")
+                and master_meta.get("xmp_keywords")
+                and dup_meta.get("xmp_keywords") == master_meta.get("xmp_keywords")
+            ):
                 reasons.append("xmp_keywords")
-            if dup_meta.get("xmp_title") and master_meta.get("xmp_title") and dup_meta.get("xmp_title") == master_meta.get("xmp_title"):
+            if (
+                dup_meta.get("xmp_title")
+                and master_meta.get("xmp_title")
+                and dup_meta.get("xmp_title") == master_meta.get("xmp_title")
+            ):
                 reasons.append("xmp_title")
             score = 1.0 if dup_hash == master_hash else 0.0
-            group_entry["duplicates"].append({
-                "file": dup,
-                "score": score,
-                "reasons": "|".join(reasons),
-                "name": dup_meta.get("name"),
-                "path": dup_meta.get("path"),
-                "size": dup_meta.get("size"),
-                "created": dup_meta.get("created"),
-                "modified": dup_meta.get("modified"),
-                "iptc_keywords": dup_meta.get("iptc_keywords"),
-                "iptc_caption": dup_meta.get("iptc_caption"),
-                "xmp_keywords": dup_meta.get("xmp_keywords"),
-                "xmp_title": dup_meta.get("xmp_title"),
-            })
+            group_entry["duplicates"].append(
+                {
+                    "file": dup,
+                    "score": score,
+                    "reasons": "|".join(reasons),
+                    "name": dup_meta.get("name"),
+                    "path": dup_meta.get("path"),
+                    "size": dup_meta.get("size"),
+                    "created": dup_meta.get("created"),
+                    "modified": dup_meta.get("modified"),
+                    "iptc_keywords": dup_meta.get("iptc_keywords"),
+                    "iptc_caption": dup_meta.get("iptc_caption"),
+                    "xmp_keywords": dup_meta.get("xmp_keywords"),
+                    "xmp_title": dup_meta.get("xmp_title"),
+                }
+            )
         summary.append(group_entry)
 
     # Write CSV output with more attributes
     if "csv" in formats:
         with open(f"{out_prefix}.csv", "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow([
-                "GroupID", "Master", "MasterName", "MasterPath", "MasterSize", "MasterCreated", "MasterModified",
-                "MasterIPTCKeywords", "MasterIPTCCaption", "MasterXMPKeywords", "MasterXMPTitle",
-                "Duplicate", "DuplicateName", "DuplicatePath", "DuplicateSize", "DuplicateCreated", "DuplicateModified",
-                "DuplicateIPTCKeywords", "DuplicateIPTCCaption", "DuplicateXMPKeywords", "DuplicateXMPTitle",
-                "ConfidenceScore", "Reasons"
-            ])
+            writer.writerow(
+                [
+                    "GroupID",
+                    "Master",
+                    "MasterName",
+                    "MasterPath",
+                    "MasterSize",
+                    "MasterCreated",
+                    "MasterModified",
+                    "MasterIPTCKeywords",
+                    "MasterIPTCCaption",
+                    "MasterXMPKeywords",
+                    "MasterXMPTitle",
+                    "Duplicate",
+                    "DuplicateName",
+                    "DuplicatePath",
+                    "DuplicateSize",
+                    "DuplicateCreated",
+                    "DuplicateModified",
+                    "DuplicateIPTCKeywords",
+                    "DuplicateIPTCCaption",
+                    "DuplicateXMPKeywords",
+                    "DuplicateXMPTitle",
+                    "ConfidenceScore",
+                    "Reasons",
+                ]
+            )
             for entry in summary:
                 for dup in entry["duplicates"]:
-                    writer.writerow([
-                        entry["group_id"],
-                        entry["master"],
-                        entry["master_attributes"]["name"],
-                        entry["master_attributes"]["path"],
-                        entry["master_attributes"]["size"],
-                        entry["master_attributes"]["created"],
-                        entry["master_attributes"]["modified"],
-                        entry["master_attributes"].get("iptc_keywords"),
-                        entry["master_attributes"].get("iptc_caption"),
-                        entry["master_attributes"].get("xmp_keywords"),
-                        entry["master_attributes"].get("xmp_title"),
-                        dup["file"],
-                        dup["name"],
-                        dup["path"],
-                        dup["size"],
-                        dup["created"],
-                        dup["modified"],
-                        dup.get("iptc_keywords"),
-                        dup.get("iptc_caption"),
-                        dup.get("xmp_keywords"),
-                        dup.get("xmp_title"),
-                        dup["score"],
-                        dup["reasons"]
-                    ])
+                    writer.writerow(
+                        [
+                            entry["group_id"],
+                            entry["master"],
+                            entry["master_attributes"]["name"],
+                            entry["master_attributes"]["path"],
+                            entry["master_attributes"]["size"],
+                            entry["master_attributes"]["created"],
+                            entry["master_attributes"]["modified"],
+                            entry["master_attributes"].get("iptc_keywords"),
+                            entry["master_attributes"].get("iptc_caption"),
+                            entry["master_attributes"].get("xmp_keywords"),
+                            entry["master_attributes"].get("xmp_title"),
+                            dup["file"],
+                            dup["name"],
+                            dup["path"],
+                            dup["size"],
+                            dup["created"],
+                            dup["modified"],
+                            dup.get("iptc_keywords"),
+                            dup.get("iptc_caption"),
+                            dup.get("xmp_keywords"),
+                            dup.get("xmp_title"),
+                            dup["score"],
+                            dup["reasons"],
+                        ]
+                    )
     # Write JSON output with more attributes
     if "json" in formats:
         with open(f"{out_prefix}.json", "w") as f:
@@ -292,9 +376,12 @@ def export_report(dupes: List[List[str]], formats: List[str] = ["csv", "json"], 
         f"Exported report in formats: {formats} | Config: {config_path or 'default'} | Output: {out_prefix} | Execution time: {exec_time:.2f}s"
     )
 
+
 # Summarize the contents of one or more report files (CSV or JSON).
 # Output is in markdown format and can be saved to a file.
-def summarize_reports(report_files: List[str], output_file: str = None, summary_format: str = "markdown"):
+def summarize_reports(
+    report_files: List[str], output_file: str = None, summary_format: str = "markdown"
+):
     """
     Summarize the contents of one or more report files (CSV or JSON).
     Output includes:
@@ -328,9 +415,16 @@ def summarize_reports(report_files: List[str], output_file: str = None, summary_
             with open(report, "r") as f:
                 groups = json.load(f)
                 for group in groups:
-                    master_dir = Path(group["master_attributes"]["path"]).parent.as_posix()
+                    master_dir = Path(
+                        group["master_attributes"]["path"]
+                    ).parent.as_posix()
                     for dup in group["duplicates"]:
-                        row = {**group["master_attributes"], **dup, "group_id": group["group_id"], "master": group["master"]}
+                        row = {
+                            **group["master_attributes"],
+                            **dup,
+                            "group_id": group["group_id"],
+                            "master": group["master"],
+                        }
                         row["directory"] = master_dir
                         rows.append(row)
         all_rows.extend(rows)
@@ -347,15 +441,19 @@ def summarize_reports(report_files: List[str], output_file: str = None, summary_
         return md
 
     # Date/time range
-    created_times = pd.to_numeric(df.get("MasterCreated", df.get("created", pd.Series([]))), errors='coerce')
-    modified_times = pd.to_numeric(df.get("MasterModified", df.get("modified", pd.Series([]))), errors='coerce')
+    created_times = pd.to_numeric(
+        df.get("MasterCreated", df.get("created", pd.Series([]))), errors="coerce"
+    )
+    modified_times = pd.to_numeric(
+        df.get("MasterModified", df.get("modified", pd.Series([]))), errors="coerce"
+    )
     scan_dates = []
     if not created_times.empty and not created_times.isnull().all():
-        scan_dates.append(pd.to_datetime(created_times, unit='s').min())
-        scan_dates.append(pd.to_datetime(created_times, unit='s').max())
+        scan_dates.append(pd.to_datetime(created_times, unit="s").min())
+        scan_dates.append(pd.to_datetime(created_times, unit="s").max())
     if not modified_times.empty and not modified_times.isnull().all():
-        scan_dates.append(pd.to_datetime(modified_times, unit='s').min())
-        scan_dates.append(pd.to_datetime(modified_times, unit='s').max())
+        scan_dates.append(pd.to_datetime(modified_times, unit="s").min())
+        scan_dates.append(pd.to_datetime(modified_times, unit="s").max())
 
     # Directories
     if "MasterPath" in df.columns:
@@ -366,7 +464,9 @@ def summarize_reports(report_files: List[str], output_file: str = None, summary_
 
     # Confidence score range per directory
     for d in directories:
-        scores = pd.to_numeric(df[df["directory"] == d]["ConfidenceScore"], errors='coerce')
+        scores = pd.to_numeric(
+            df[df["directory"] == d]["ConfidenceScore"], errors="coerce"
+        )
         if not scores.empty:
             dir_conf_scores[d] = [scores.min(), scores.max()]
 
@@ -426,6 +526,7 @@ def summarize_reports(report_files: List[str], output_file: str = None, summary_
             f.write(md)
     return
 
+
 # Show help message for command-line usage
 def show_help():
     console.print("[bold cyan]Photochomper Help[/bold cyan]")
@@ -434,6 +535,7 @@ def show_help():
     console.print("  --search     Run duplicate search")
     console.print("  --schedule N Schedule search every N hours")
     console.print("  --help       Show this help message")
+
 
 # Interactive setup for configuration via TUI
 def tui_setup():
@@ -445,35 +547,57 @@ def tui_setup():
     default_path_pref = "shorter"
     default_filename_pref = None
 
-    dirs = console.input(f"Enter directories to scan (comma separated) [{','.join(default_dirs)}]: ").strip()
+    dirs = console.input(
+        f"Enter directories to scan (comma separated) [{','.join(default_dirs)}]: "
+    ).strip()
     dirs = dirs.split(",") if dirs else default_dirs
 
-    types = console.input(f"Enter file types to include (comma separated, e.g. jpg,png) [{','.join(default_types)}]: ").strip()
+    types = console.input(
+        f"Enter file types to include (comma separated, e.g. jpg,png) [{','.join(default_types)}]: "
+    ).strip()
     types = types.split(",") if types else default_types
 
-    exclude_dirs = console.input("Enter directories to exclude (comma separated) [none]: ").strip()
+    exclude_dirs = console.input(
+        "Enter directories to exclude (comma separated) [none]: "
+    ).strip()
     exclude_dirs = exclude_dirs.split(",") if exclude_dirs else default_exclude_dirs
 
-    similarity_input = console.input(f"Similarity threshold (1.0 = exact) [{default_similarity}]: ").strip()
+    similarity_input = console.input(
+        f"Similarity threshold (1.0 = exact) [{default_similarity}]: "
+    ).strip()
     similarity = float(similarity_input) if similarity_input else default_similarity
 
-    path_pref = console.input(f"Prefer master file with (shorter/longer) path? [{default_path_pref}]: ").strip().lower()
+    path_pref = (
+        console.input(
+            f"Prefer master file with (shorter/longer) path? [{default_path_pref}]: "
+        )
+        .strip()
+        .lower()
+    )
     if path_pref not in ("shorter", "longer"):
         path_pref = default_path_pref
 
-    filename_pref = console.input("Prefer master file with (shorter/longer) filename? [none]: ").strip().lower()
+    filename_pref = (
+        console.input("Prefer master file with (shorter/longer) filename? [none]: ")
+        .strip()
+        .lower()
+    )
     if filename_pref not in ("shorter", "longer"):
         filename_pref = default_filename_pref
 
     # Always create a new config file with a unique timestamp
     default_config_dir = os.getcwd()
-    config_dir = console.input(f"Directory to save config file? [{default_config_dir}]: ").strip()
+    config_dir = console.input(
+        f"Directory to save config file? [{default_config_dir}]: "
+    ).strip()
     if not config_dir:
         config_dir = default_config_dir
 
-    config_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    config_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     default_config_base = "photochomper_config"
-    config_base = console.input(f"Config file base name? [{default_config_base}]: ").strip()
+    config_base = console.input(
+        f"Config file base name? [{default_config_base}]: "
+    ).strip()
     if not config_base:
         config_base = default_config_base
     # Always append date/time to config file name and use .conf extension
@@ -482,15 +606,23 @@ def tui_setup():
 
     # Ask for output file location
     default_output_dir = os.getcwd()
-    output_dir = console.input(f"Directory to save output files? [{default_output_dir}]: ").strip()
+    output_dir = console.input(
+        f"Directory to save output files? [{default_output_dir}]: "
+    ).strip()
     if not output_dir:
         output_dir = default_output_dir
 
     default_output_base = "duplicates_report"
-    output_base = console.input(f"Output file base name? [{default_output_base}]: ").strip()
+    output_base = console.input(
+        f"Output file base name? [{default_output_base}]: "
+    ).strip()
     if not output_base:
         output_base = default_output_base
-    include_dt = console.input("Include date and time in output file name? (y/n) [y]: ").strip().lower()
+    include_dt = (
+        console.input("Include date and time in output file name? (y/n) [y]: ")
+        .strip()
+        .lower()
+    )
     if include_dt in ("", "y", "yes"):
         output_base += f"_{config_timestamp}"
     output_base = os.path.join(output_dir, output_base)
@@ -503,14 +635,16 @@ def tui_setup():
         "path_preference": path_pref,
         "filename_preference": filename_pref,
         "config_file": config_path,
-        "output_base": output_base
+        "output_base": output_base,
     }
     save_config(config, config_path)
     console.print(f"[bold green]Configuration saved to {config_path}.[/bold green]")
 
     # Only ask for summary file name, not format
     default_summary_file = os.path.join(output_dir, "duplicates_summary.md")
-    summary_file = console.input(f"Summary output file name? [{default_summary_file}]: ").strip()
+    summary_file = console.input(
+        f"Summary output file name? [{default_summary_file}]: "
+    ).strip()
     if not summary_file:
         summary_file = default_summary_file
     # Always append date/time if requested, even for custom summary file names
@@ -518,31 +652,36 @@ def tui_setup():
         base, ext = os.path.splitext(summary_file)
         summary_file = f"{base}_{config_timestamp}{ext}"
 
-    config.update({
-        "summary_format": "markdown",
-        "summary_file": summary_file
-    })
+    config.update({"summary_format": "markdown", "summary_file": summary_file})
     save_config(config, config_path)
     console.print(f"[bold green]Configuration saved to {config_path}.[/bold green]")
+
 
 def select_config_file(config_dir: str) -> str:
     """Allow the user to select a config file if more than one exists in the directory."""
     configs = [f for f in os.listdir(config_dir) if f.endswith(".conf")]
     if not configs:
-        console.print(f"[bold red]No config files found in {config_dir}. Running setup.[/bold red]")
+        console.print(
+            f"[bold red]No config files found in {config_dir}. Running setup.[/bold red]"
+        )
         tui_setup()
         sys.exit(0)
     if len(configs) == 1:
         return os.path.join(config_dir, configs[0])
     # Warn and offer selection
-    console.print(f"[bold yellow]Multiple config files found in {config_dir}:[/bold yellow]")
+    console.print(
+        f"[bold yellow]Multiple config files found in {config_dir}:[/bold yellow]"
+    )
     for idx, fname in enumerate(configs, 1):
         console.print(f"  {idx}. {fname}")
     while True:
-        choice = console.input(f"Select config file by number (1-{len(configs)}): ").strip()
+        choice = console.input(
+            f"Select config file by number (1-{len(configs)}): "
+        ).strip()
         if choice.isdigit() and 1 <= int(choice) <= len(configs):
             return os.path.join(config_dir, configs[int(choice) - 1])
         console.print("[bold red]Invalid selection. Try again.[/bold red]")
+
 
 def load_config(config_path="photochomper_config.conf") -> Dict[str, Any]:
     if not os.path.exists(config_path):
@@ -554,12 +693,14 @@ def load_config(config_path="photochomper_config.conf") -> Dict[str, Any]:
         log_action(f"Error loading config: {e}")
         return {}
 
+
 def save_config(config: Dict[str, Any], config_path="photochomper_config.conf"):
     try:
         with open(config_path, "w") as f:
             json.dump(config, f, indent=2)
     except Exception as e:
         log_action(f"Error saving config: {e}")
+
 
 # Compute SHA-256 hash of a file for duplicate detection
 def sha256_file(filepath: str) -> str:
@@ -572,6 +713,7 @@ def sha256_file(filepath: str) -> str:
     except Exception as e:
         log_action(f"Error hashing file {filepath}: {e}")
         return ""
+
 
 # Get basic metadata for a file (creation/modification time, size, name, path)
 def get_image_metadata(filepath: str) -> Dict[str, Any]:
@@ -589,8 +731,8 @@ def get_image_metadata(filepath: str) -> Dict[str, Any]:
             try:
                 info = iptcinfo3.IPTCInfo(filepath)
                 if info:
-                    meta["iptc_keywords"] = info['keywords']
-                    meta["iptc_caption"] = info['caption/abstract']
+                    meta["iptc_keywords"] = info["keywords"]
+                    meta["iptc_caption"] = info["caption/abstract"]
             except Exception as e:
                 log_action(f"Error reading IPTC for {filepath}: {e}")
         # XMP tags
@@ -599,8 +741,12 @@ def get_image_metadata(filepath: str) -> Dict[str, Any]:
                 xmpfile = XMPFiles(file_path=filepath)
                 xmp = xmpfile.get_xmp()
                 if xmp:
-                    meta["xmp_keywords"] = xmp.get_property(libxmp.consts.XMP_NS_DC, 'subject')
-                    meta["xmp_title"] = xmp.get_property(libxmp.consts.XMP_NS_DC, 'title')
+                    meta["xmp_keywords"] = xmp.get_property(
+                        libxmp.consts.XMP_NS_DC, "subject"
+                    )
+                    meta["xmp_title"] = xmp.get_property(
+                        libxmp.consts.XMP_NS_DC, "title"
+                    )
                 xmpfile.close_file()
             except Exception as e:
                 log_action(f"Error reading XMP for {filepath}: {e}")
@@ -608,10 +754,12 @@ def get_image_metadata(filepath: str) -> Dict[str, Any]:
         log_action(f"Error reading metadata for {filepath}: {e}")
     return meta
 
+
 # Check if a file matches the allowed image types
 def is_image_file(filename: str, types: List[str]) -> bool:
     ext = Path(filename).suffix.lower().lstrip(".")
     return ext in [t.lower().lstrip(".") for t in types]
+
 
 # Backup a file before deletion (not currently used in main flow)
 def backup_file(filepath: str):
@@ -625,8 +773,14 @@ def backup_file(filepath: str):
     except Exception as e:
         log_action(f"Error backing up {filepath}: {e}")
 
+
 # Find duplicate files by SHA-256 hash
-def find_duplicates(dirs: List[str], types: List[str], exclude_dirs: List[str], similarity_threshold: float = 1.0) -> List[List[str]]:
+def find_duplicates(
+    dirs: List[str],
+    types: List[str],
+    exclude_dirs: List[str],
+    similarity_threshold: float = 1.0,
+) -> List[List[str]]:
     files = []
     # Recursively scan directories for image files
     for d in dirs:
@@ -645,28 +799,54 @@ def find_duplicates(dirs: List[str], types: List[str], exclude_dirs: List[str], 
     # Only return groups with more than one file (duplicates)
     return [group for group in hash_map.values() if len(group) > 1]
 
+
 # Rank duplicates according to user preferences (filename/path length, modified date)
-def rank_duplicates(dupe_group: List[str], path_preference: str = "shorter", filename_preference: str = None) -> List[str]:
+def rank_duplicates(
+    dupe_group: List[str],
+    path_preference: str = "shorter",
+    filename_preference: str = None,
+) -> List[str]:
     metas = [get_image_metadata(f) for f in dupe_group]
     metas = [m for m in metas if m]  # Remove failed metadata
 
     # Sort by filename length if specified, then by path length, then by modified date
     if filename_preference == "longer":
-        metas.sort(key=lambda m: (-len(m.get("name", "")), -len(m.get("path", "")), -m.get("modified", 0)))
+        metas.sort(
+            key=lambda m: (
+                -len(m.get("name", "")),
+                -len(m.get("path", "")),
+                -m.get("modified", 0),
+            )
+        )
     elif filename_preference == "shorter":
-        metas.sort(key=lambda m: (len(m.get("name", "")), -len(m.get("path", "")), -m.get("modified", 0)))
+        metas.sort(
+            key=lambda m: (
+                len(m.get("name", "")),
+                -len(m.get("path", "")),
+                -m.get("modified", 0),
+            )
+        )
     elif path_preference == "longer":
         metas.sort(key=lambda m: (len(m.get("path", "")), -m.get("modified", 0)))
     else:  # shorter path
         metas.sort(key=lambda m: (-len(m.get("path", "")), -m.get("modified", 0)))
     return [m["path"] for m in metas]
 
+
 # Export duplicate report to CSV and JSON formats
-def export_report(dupes: List[List[str]], formats: List[str] = ["csv", "json"], out_prefix: str = None, config_path: str = None, exec_time: float = None):
+def export_report(
+    dupes: List[List[str]],
+    formats: List[str] = ["csv", "json"],
+    out_prefix: str = None,
+    config_path: str = None,
+    exec_time: float = None,
+):
     config = load_config(config_path) if config_path else load_config()
     path_preference = config.get("path_preference", "shorter")  # <-- Add this
     filename_preference = config.get("filename_preference", None)  # <-- And this
-    output_base = config.get("output_base", os.path.join(os.getcwd(), "duplicates_report"))
+    output_base = config.get(
+        "output_base", os.path.join(os.getcwd(), "duplicates_report")
+    )
     if out_prefix is None:
         out_prefix = output_base
     summary = []
@@ -708,69 +888,109 @@ def export_report(dupes: List[List[str]], formats: List[str] = ["csv", "json"], 
             if dup_meta.get("modified") == master_meta.get("modified"):
                 reasons.append("modified")
             # IPTC/XMP tag comparison
-            if dup_meta.get("iptc_keywords") and master_meta.get("iptc_keywords") and dup_meta.get("iptc_keywords") == master_meta.get("iptc_keywords"):
+            if (
+                dup_meta.get("iptc_keywords")
+                and master_meta.get("iptc_keywords")
+                and dup_meta.get("iptc_keywords") == master_meta.get("iptc_keywords")
+            ):
                 reasons.append("iptc_keywords")
-            if dup_meta.get("iptc_caption") and master_meta.get("iptc_caption") and dup_meta.get("iptc_caption") == master_meta.get("iptc_caption"):
+            if (
+                dup_meta.get("iptc_caption")
+                and master_meta.get("iptc_caption")
+                and dup_meta.get("iptc_caption") == master_meta.get("iptc_caption")
+            ):
                 reasons.append("iptc_caption")
-            if dup_meta.get("xmp_keywords") and master_meta.get("xmp_keywords") and dup_meta.get("xmp_keywords") == master_meta.get("xmp_keywords"):
+            if (
+                dup_meta.get("xmp_keywords")
+                and master_meta.get("xmp_keywords")
+                and dup_meta.get("xmp_keywords") == master_meta.get("xmp_keywords")
+            ):
                 reasons.append("xmp_keywords")
-            if dup_meta.get("xmp_title") and master_meta.get("xmp_title") and dup_meta.get("xmp_title") == master_meta.get("xmp_title"):
+            if (
+                dup_meta.get("xmp_title")
+                and master_meta.get("xmp_title")
+                and dup_meta.get("xmp_title") == master_meta.get("xmp_title")
+            ):
                 reasons.append("xmp_title")
             score = 1.0 if dup_hash == master_hash else 0.0
-            group_entry["duplicates"].append({
-                "file": dup,
-                "score": score,
-                "reasons": "|".join(reasons),
-                "name": dup_meta.get("name"),
-                "path": dup_meta.get("path"),
-                "size": dup_meta.get("size"),
-                "created": dup_meta.get("created"),
-                "modified": dup_meta.get("modified"),
-                "iptc_keywords": dup_meta.get("iptc_keywords"),
-                "iptc_caption": dup_meta.get("iptc_caption"),
-                "xmp_keywords": dup_meta.get("xmp_keywords"),
-                "xmp_title": dup_meta.get("xmp_title"),
-            })
+            group_entry["duplicates"].append(
+                {
+                    "file": dup,
+                    "score": score,
+                    "reasons": "|".join(reasons),
+                    "name": dup_meta.get("name"),
+                    "path": dup_meta.get("path"),
+                    "size": dup_meta.get("size"),
+                    "created": dup_meta.get("created"),
+                    "modified": dup_meta.get("modified"),
+                    "iptc_keywords": dup_meta.get("iptc_keywords"),
+                    "iptc_caption": dup_meta.get("iptc_caption"),
+                    "xmp_keywords": dup_meta.get("xmp_keywords"),
+                    "xmp_title": dup_meta.get("xmp_title"),
+                }
+            )
         summary.append(group_entry)
 
     # Write CSV output with more attributes
     if "csv" in formats:
         with open(f"{out_prefix}.csv", "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow([
-                "GroupID", "Master", "MasterName", "MasterPath", "MasterSize", "MasterCreated", "MasterModified",
-                "MasterIPTCKeywords", "MasterIPTCCaption", "MasterXMPKeywords", "MasterXMPTitle",
-                "Duplicate", "DuplicateName", "DuplicatePath", "DuplicateSize", "DuplicateCreated", "DuplicateModified",
-                "DuplicateIPTCKeywords", "DuplicateIPTCCaption", "DuplicateXMPKeywords", "DuplicateXMPTitle",
-                "ConfidenceScore", "Reasons"
-            ])
+            writer.writerow(
+                [
+                    "GroupID",
+                    "Master",
+                    "MasterName",
+                    "MasterPath",
+                    "MasterSize",
+                    "MasterCreated",
+                    "MasterModified",
+                    "MasterIPTCKeywords",
+                    "MasterIPTCCaption",
+                    "MasterXMPKeywords",
+                    "MasterXMPTitle",
+                    "Duplicate",
+                    "DuplicateName",
+                    "DuplicatePath",
+                    "DuplicateSize",
+                    "DuplicateCreated",
+                    "DuplicateModified",
+                    "DuplicateIPTCKeywords",
+                    "DuplicateIPTCCaption",
+                    "DuplicateXMPKeywords",
+                    "DuplicateXMPTitle",
+                    "ConfidenceScore",
+                    "Reasons",
+                ]
+            )
             for entry in summary:
                 for dup in entry["duplicates"]:
-                    writer.writerow([
-                        entry["group_id"],
-                        entry["master"],
-                        entry["master_attributes"]["name"],
-                        entry["master_attributes"]["path"],
-                        entry["master_attributes"]["size"],
-                        entry["master_attributes"]["created"],
-                        entry["master_attributes"]["modified"],
-                        entry["master_attributes"].get("iptc_keywords"),
-                        entry["master_attributes"].get("iptc_caption"),
-                        entry["master_attributes"].get("xmp_keywords"),
-                        entry["master_attributes"].get("xmp_title"),
-                        dup["file"],
-                        dup["name"],
-                        dup["path"],
-                        dup["size"],
-                        dup["created"],
-                        dup["modified"],
-                        dup.get("iptc_keywords"),
-                        dup.get("iptc_caption"),
-                        dup.get("xmp_keywords"),
-                        dup.get("xmp_title"),
-                        dup["score"],
-                        dup["reasons"]
-                    ])
+                    writer.writerow(
+                        [
+                            entry["group_id"],
+                            entry["master"],
+                            entry["master_attributes"]["name"],
+                            entry["master_attributes"]["path"],
+                            entry["master_attributes"]["size"],
+                            entry["master_attributes"]["created"],
+                            entry["master_attributes"]["modified"],
+                            entry["master_attributes"].get("iptc_keywords"),
+                            entry["master_attributes"].get("iptc_caption"),
+                            entry["master_attributes"].get("xmp_keywords"),
+                            entry["master_attributes"].get("xmp_title"),
+                            dup["file"],
+                            dup["name"],
+                            dup["path"],
+                            dup["size"],
+                            dup["created"],
+                            dup["modified"],
+                            dup.get("iptc_keywords"),
+                            dup.get("iptc_caption"),
+                            dup.get("xmp_keywords"),
+                            dup.get("xmp_title"),
+                            dup["score"],
+                            dup["reasons"],
+                        ]
+                    )
     # Write JSON output with more attributes
     if "json" in formats:
         with open(f"{out_prefix}.json", "w") as f:
@@ -779,9 +999,12 @@ def export_report(dupes: List[List[str]], formats: List[str] = ["csv", "json"], 
         f"Exported report in formats: {formats} | Config: {config_path or 'default'} | Output: {out_prefix} | Execution time: {exec_time:.2f}s"
     )
 
+
 # Summarize the contents of one or more report files (CSV or JSON).
 # Output is in markdown format and can be saved to a file.
-def summarize_reports(report_files: List[str], output_file: str = None, summary_format: str = "markdown"):
+def summarize_reports(
+    report_files: List[str], output_file: str = None, summary_format: str = "markdown"
+):
     """
     Summarize the contents of one or more report files (CSV or JSON).
     Output includes:
@@ -815,9 +1038,16 @@ def summarize_reports(report_files: List[str], output_file: str = None, summary_
             with open(report, "r") as f:
                 groups = json.load(f)
                 for group in groups:
-                    master_dir = Path(group["master_attributes"]["path"]).parent.as_posix()
+                    master_dir = Path(
+                        group["master_attributes"]["path"]
+                    ).parent.as_posix()
                     for dup in group["duplicates"]:
-                        row = {**group["master_attributes"], **dup, "group_id": group["group_id"], "master": group["master"]}
+                        row = {
+                            **group["master_attributes"],
+                            **dup,
+                            "group_id": group["group_id"],
+                            "master": group["master"],
+                        }
                         row["directory"] = master_dir
                         rows.append(row)
         all_rows.extend(rows)
@@ -834,15 +1064,19 @@ def summarize_reports(report_files: List[str], output_file: str = None, summary_
         return md
 
     # Date/time range
-    created_times = pd.to_numeric(df.get("MasterCreated", df.get("created", pd.Series([]))), errors='coerce')
-    modified_times = pd.to_numeric(df.get("MasterModified", df.get("modified", pd.Series([]))), errors='coerce')
+    created_times = pd.to_numeric(
+        df.get("MasterCreated", df.get("created", pd.Series([]))), errors="coerce"
+    )
+    modified_times = pd.to_numeric(
+        df.get("MasterModified", df.get("modified", pd.Series([]))), errors="coerce"
+    )
     scan_dates = []
     if not created_times.empty and not created_times.isnull().all():
-        scan_dates.append(pd.to_datetime(created_times, unit='s').min())
-        scan_dates.append(pd.to_datetime(created_times, unit='s').max())
+        scan_dates.append(pd.to_datetime(created_times, unit="s").min())
+        scan_dates.append(pd.to_datetime(created_times, unit="s").max())
     if not modified_times.empty and not modified_times.isnull().all():
-        scan_dates.append(pd.to_datetime(modified_times, unit='s').min())
-        scan_dates.append(pd.to_datetime(modified_times, unit='s').max())
+        scan_dates.append(pd.to_datetime(modified_times, unit="s").min())
+        scan_dates.append(pd.to_datetime(modified_times, unit="s").max())
 
     # Directories
     if "MasterPath" in df.columns:
@@ -853,7 +1087,9 @@ def summarize_reports(report_files: List[str], output_file: str = None, summary_
 
     # Confidence score range per directory
     for d in directories:
-        scores = pd.to_numeric(df[df["directory"] == d]["ConfidenceScore"], errors='coerce')
+        scores = pd.to_numeric(
+            df[df["directory"] == d]["ConfidenceScore"], errors="coerce"
+        )
         if not scores.empty:
             dir_conf_scores[d] = [scores.min(), scores.max()]
 
@@ -913,6 +1149,7 @@ def summarize_reports(report_files: List[str], output_file: str = None, summary_
             f.write(md)
     return
 
+
 # Show help message for command-line usage
 def show_help():
     console.print("[bold cyan]Photochomper Help[/bold cyan]")
@@ -921,6 +1158,7 @@ def show_help():
     console.print("  --search     Run duplicate search")
     console.print("  --schedule N Schedule search every N hours")
     console.print("  --help       Show this help message")
+
 
 # Interactive setup for configuration via TUI
 def tui_setup():
@@ -932,35 +1170,57 @@ def tui_setup():
     default_path_pref = "shorter"
     default_filename_pref = None
 
-    dirs = console.input(f"Enter directories to scan (comma separated) [{','.join(default_dirs)}]: ").strip()
+    dirs = console.input(
+        f"Enter directories to scan (comma separated) [{','.join(default_dirs)}]: "
+    ).strip()
     dirs = dirs.split(",") if dirs else default_dirs
 
-    types = console.input(f"Enter file types to include (comma separated, e.g. jpg,png) [{','.join(default_types)}]: ").strip()
+    types = console.input(
+        f"Enter file types to include (comma separated, e.g. jpg,png) [{','.join(default_types)}]: "
+    ).strip()
     types = types.split(",") if types else default_types
 
-    exclude_dirs = console.input("Enter directories to exclude (comma separated) [none]: ").strip()
+    exclude_dirs = console.input(
+        "Enter directories to exclude (comma separated) [none]: "
+    ).strip()
     exclude_dirs = exclude_dirs.split(",") if exclude_dirs else default_exclude_dirs
 
-    similarity_input = console.input(f"Similarity threshold (1.0 = exact) [{default_similarity}]: ").strip()
+    similarity_input = console.input(
+        f"Similarity threshold (1.0 = exact) [{default_similarity}]: "
+    ).strip()
     similarity = float(similarity_input) if similarity_input else default_similarity
 
-    path_pref = console.input(f"Prefer master file with (shorter/longer) path? [{default_path_pref}]: ").strip().lower()
+    path_pref = (
+        console.input(
+            f"Prefer master file with (shorter/longer) path? [{default_path_pref}]: "
+        )
+        .strip()
+        .lower()
+    )
     if path_pref not in ("shorter", "longer"):
         path_pref = default_path_pref
 
-    filename_pref = console.input("Prefer master file with (shorter/longer) filename? [none]: ").strip().lower()
+    filename_pref = (
+        console.input("Prefer master file with (shorter/longer) filename? [none]: ")
+        .strip()
+        .lower()
+    )
     if filename_pref not in ("shorter", "longer"):
         filename_pref = default_filename_pref
 
     # Always create a new config file with a unique timestamp
     default_config_dir = os.getcwd()
-    config_dir = console.input(f"Directory to save config file? [{default_config_dir}]: ").strip()
+    config_dir = console.input(
+        f"Directory to save config file? [{default_config_dir}]: "
+    ).strip()
     if not config_dir:
         config_dir = default_config_dir
 
-    config_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    config_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     default_config_base = "photochomper_config"
-    config_base = console.input(f"Config file base name? [{default_config_base}]: ").strip()
+    config_base = console.input(
+        f"Config file base name? [{default_config_base}]: "
+    ).strip()
     if not config_base:
         config_base = default_config_base
     # Always append date/time to config file name and use .conf extension
@@ -969,15 +1229,23 @@ def tui_setup():
 
     # Ask for output file location
     default_output_dir = os.getcwd()
-    output_dir = console.input(f"Directory to save output files? [{default_output_dir}]: ").strip()
+    output_dir = console.input(
+        f"Directory to save output files? [{default_output_dir}]: "
+    ).strip()
     if not output_dir:
         output_dir = default_output_dir
 
     default_output_base = "duplicates_report"
-    output_base = console.input(f"Output file base name? [{default_output_base}]: ").strip()
+    output_base = console.input(
+        f"Output file base name? [{default_output_base}]: "
+    ).strip()
     if not output_base:
         output_base = default_output_base
-    include_dt = console.input("Include date and time in output file name? (y/n) [y]: ").strip().lower()
+    include_dt = (
+        console.input("Include date and time in output file name? (y/n) [y]: ")
+        .strip()
+        .lower()
+    )
     if include_dt in ("", "y", "yes"):
         output_base += f"_{config_timestamp}"
     output_base = os.path.join(output_dir, output_base)
@@ -990,14 +1258,16 @@ def tui_setup():
         "path_preference": path_pref,
         "filename_preference": filename_pref,
         "config_file": config_path,
-        "output_base": output_base
+        "output_base": output_base,
     }
     save_config(config, config_path)
     console.print(f"[bold green]Configuration saved to {config_path}.[/bold green]")
 
     # Only ask for summary file name, not format
     default_summary_file = os.path.join(output_dir, "duplicates_summary.md")
-    summary_file = console.input(f"Summary output file name? [{default_summary_file}]: ").strip()
+    summary_file = console.input(
+        f"Summary output file name? [{default_summary_file}]: "
+    ).strip()
     if not summary_file:
         summary_file = default_summary_file
     # Always append date/time if requested, even for custom summary file names
@@ -1005,31 +1275,36 @@ def tui_setup():
         base, ext = os.path.splitext(summary_file)
         summary_file = f"{base}_{config_timestamp}{ext}"
 
-    config.update({
-        "summary_format": "markdown",
-        "summary_file": summary_file
-    })
+    config.update({"summary_format": "markdown", "summary_file": summary_file})
     save_config(config, config_path)
     console.print(f"[bold green]Configuration saved to {config_path}.[/bold green]")
+
 
 def select_config_file(config_dir: str) -> str:
     """Allow the user to select a config file if more than one exists in the directory."""
     configs = [f for f in os.listdir(config_dir) if f.endswith(".conf")]
     if not configs:
-        console.print(f"[bold red]No config files found in {config_dir}. Running setup.[/bold red]")
+        console.print(
+            f"[bold red]No config files found in {config_dir}. Running setup.[/bold red]"
+        )
         tui_setup()
         sys.exit(0)
     if len(configs) == 1:
         return os.path.join(config_dir, configs[0])
     # Warn and offer selection
-    console.print(f"[bold yellow]Multiple config files found in {config_dir}:[/bold yellow]")
+    console.print(
+        f"[bold yellow]Multiple config files found in {config_dir}:[/bold yellow]"
+    )
     for idx, fname in enumerate(configs, 1):
         console.print(f"  {idx}. {fname}")
     while True:
-        choice = console.input(f"Select config file by number (1-{len(configs)}): ").strip()
+        choice = console.input(
+            f"Select config file by number (1-{len(configs)}): "
+        ).strip()
         if choice.isdigit() and 1 <= int(choice) <= len(configs):
             return os.path.join(config_dir, configs[int(choice) - 1])
         console.print("[bold red]Invalid selection. Try again.[/bold red]")
+
 
 # Run duplicate search and export results
 def run_search(config: dict, config_path: str = None):
@@ -1041,13 +1316,20 @@ def run_search(config: dict, config_path: str = None):
             config.get("dirs", []),
             config.get("types", []),
             config.get("exclude_dirs", []),
-            config.get("similarity_threshold", 1.0)
+            config.get("similarity_threshold", 1.0),
         )
         progress.update(task, completed=100)
     exec_time = time.time() - start_time
     console.print(f"[bold yellow]{len(dupes)} duplicate groups found.[/bold yellow]")
-    export_report(dupes, formats=["csv", "json"], config_path=config.get("config_file", config_path), exec_time=exec_time)
-    console.print("[bold green]Reports exported to duplicates_report.csv and duplicates_report.json[/bold green]")
+    export_report(
+        dupes,
+        formats=["csv", "json"],
+        config_path=config.get("config_file", config_path),
+        exec_time=exec_time,
+    )
+    console.print(
+        "[bold green]Reports exported to duplicates_report.csv and duplicates_report.json[/bold green]"
+    )
     log_action(
         f"Search completed: {len(dupes)} groups found | Config: {config.get('config_file', config_path) or 'default'} | Execution time: {exec_time:.2f}s"
     )
@@ -1055,16 +1337,22 @@ def run_search(config: dict, config_path: str = None):
     total_files = sum(len(g) for g in dupes)
     console.print(f"[bold magenta]Total duplicate files: {total_files}[/bold magenta]")
 
+
 # Schedule repeated duplicate searches at a given interval (in hours)
 def schedule_search(interval_hours: int, config: Dict[str, Any]):
-    console.print(f"[bold blue]Scheduled search every {interval_hours} hours.[/bold blue]")
+    console.print(
+        f"[bold blue]Scheduled search every {interval_hours} hours.[/bold blue]"
+    )
     while True:
         run_search(config)
         time.sleep(interval_hours * 3600)
 
+
 # Main entry point for command-line interface
 def main():
-    parser = argparse.ArgumentParser(description="Photochomper - Duplicate Photo Finder")
+    parser = argparse.ArgumentParser(
+        description="Photochomper - Duplicate Photo Finder"
+    )
     parser.add_argument("--setup", action="store_true", help="Run setup TUI")
     parser.add_argument("--search", action="store_true", help="Run duplicate search")
     parser.add_argument("--schedule", type=int, help="Schedule search every N hours")
@@ -1073,7 +1361,9 @@ def main():
     args = parser.parse_args()
 
     if not (args.setup or args.search or args.schedule):
-        console.print("[bold yellow]No command specified. Use --help for options.[/bold yellow]")
+        console.print(
+            "[bold yellow]No command specified. Use --help for options.[/bold yellow]"
+        )
         parser.print_help()
         return
 
@@ -1094,6 +1384,7 @@ def main():
         run_search(config, config_path)
     if args.schedule:
         schedule_search(args.schedule, config)
+
 
 if __name__ == "__main__":
     main()

@@ -586,7 +586,7 @@ def get_file_selection(group: list, action_name: str) -> list:
         # Display numbered list of files
         for i, file_path in enumerate(group, 1):
             filename = Path(file_path).name
-            status_text = "👑 Master" if i == 1 else f"#{i-1} Duplicate"
+            status_text = "👑 Master" if i == 1 else f"#{i - 1} Duplicate"
             console.print(f"  [bold]{i}.[/bold] [{status_text}] {filename}")
 
         selection = (

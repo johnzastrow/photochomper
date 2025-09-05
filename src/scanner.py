@@ -520,7 +520,7 @@ def get_optimal_chunk_size(
             f"Memory optimization: Processing {total_files} files in {estimated_chunks} chunks of {chunk_size}"
         )
         log_action(
-            f"Memory analysis: {available_memory_mb:.0f}MB available, using {usable_memory_mb:.0f}MB ({memory_factor*100:.0f}%)"
+            f"Memory analysis: {available_memory_mb:.0f}MB available, using {usable_memory_mb:.0f}MB ({memory_factor * 100:.0f}%)"
         )
 
     return chunk_size

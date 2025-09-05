@@ -53,10 +53,10 @@ def select_config_file(config_dir: str) -> str:
     )
     for idx, fname in enumerate(configs, 1):
         console.print(f"  {idx}. {fname}")
-    console.print(f"  {len(configs)+1}. [Create a new config file]")
+    console.print(f"  {len(configs) + 1}. [Create a new config file]")
     while True:
         choice = console.input(
-            f"Select config file by number (1-{len(configs)+1}): "
+            f"Select config file by number (1-{len(configs) + 1}): "
         ).strip()
         if choice.isdigit():
             choice_num = int(choice)
@@ -137,11 +137,11 @@ def select_list_config_file(config_dir: str = None) -> tuple:
         except:
             console.print(f"  {idx}. {fname}")
 
-    console.print(f"  {len(list_configs)+1}. [bold]Create new configuration[/bold]")
+    console.print(f"  {len(list_configs) + 1}. [bold]Create new configuration[/bold]")
 
     while True:
         choice = console.input(
-            f"\n[bold]Select option (1-{len(list_configs)+1}): [/bold]"
+            f"\n[bold]Select option (1-{len(list_configs) + 1}): [/bold]"
         ).strip()
         if choice.isdigit():
             choice_num = int(choice)
