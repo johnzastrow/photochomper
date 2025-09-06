@@ -46,140 +46,140 @@ def export_report(
             if progress_callback:
                 progress_callback(files_processed)
 
-        group_entry = {
-            "group_id": group_id,
-            "master": master,
-            "master_attributes": {
-                "name": master_meta.get("name"),
-                "path": master_meta.get("path"),
-                "size": master_meta.get("size"),
-                "created": master_meta.get("created"),
-                "modified": master_meta.get("modified"),
-                "width": master_meta.get("width"),
-                "height": master_meta.get("height"),
-                "file_type": master_meta.get("file_type"),
-                "camera_make": master_meta.get("camera_make"),
-                "camera_model": master_meta.get("camera_model"),
-                "date_taken": master_meta.get("date_taken"),
-                "quality_score": master_meta.get("quality_score"),
-                "iptc_keywords": master_meta.get("iptc_keywords"),
-                "iptc_caption": master_meta.get("iptc_caption"),
-                "xmp_keywords": master_meta.get("xmp_keywords"),
-                "xmp_title": master_meta.get("xmp_title"),
-            },
-            "duplicates": [],
-        }
-        # Calculate similarity using the configured algorithm
-        try:
-            algorithm = HashAlgorithm(hash_algorithm)
-        except ValueError:
-            algorithm = HashAlgorithm.DHASH
+            group_entry = {
+                "group_id": group_id,
+                "master": master,
+                "master_attributes": {
+                    "name": master_meta.get("name"),
+                    "path": master_meta.get("path"),
+                    "size": master_meta.get("size"),
+                    "created": master_meta.get("created"),
+                    "modified": master_meta.get("modified"),
+                    "width": master_meta.get("width"),
+                    "height": master_meta.get("height"),
+                    "file_type": master_meta.get("file_type"),
+                    "camera_make": master_meta.get("camera_make"),
+                    "camera_model": master_meta.get("camera_model"),
+                    "date_taken": master_meta.get("date_taken"),
+                    "quality_score": master_meta.get("quality_score"),
+                    "iptc_keywords": master_meta.get("iptc_keywords"),
+                    "iptc_caption": master_meta.get("iptc_caption"),
+                    "xmp_keywords": master_meta.get("xmp_keywords"),
+                    "xmp_title": master_meta.get("xmp_title"),
+                },
+                "duplicates": [],
+            }
+            # Calculate similarity using the configured algorithm
+            try:
+                algorithm = HashAlgorithm(hash_algorithm)
+            except ValueError:
+                algorithm = HashAlgorithm.DHASH
 
-        master_hash = sha256_file(master) if algorithm == HashAlgorithm.SHA256 else ""
+            master_hash = sha256_file(master) if algorithm == HashAlgorithm.SHA256 else ""
 
-        for dup in ranked[1:]:
-            dup_meta = get_image_metadata(dup)
-            files_processed += 1
-            if progress_callback:
-                progress_callback(files_processed)
-            reasons = []
+            for dup in ranked[1:]:
+                dup_meta = get_image_metadata(dup)
+                files_processed += 1
+                if progress_callback:
+                    progress_callback(files_processed)
+                reasons = []
 
-            # Hash-based comparison
-            if algorithm == HashAlgorithm.SHA256:
-                dup_hash = sha256_file(dup)
-                score = 0.0 if dup_hash == master_hash else 1.0
-                if dup_hash == master_hash:
-                    reasons.append("exact_hash")
-            else:
-                # For perceptual hashes, we'd need to recalculate or store them
-                # For now, assume they're similar since they're in the same group
-                score = 0.1  # Default similarity for grouped items
-                reasons.append("perceptual_hash")
+                # Hash-based comparison
+                if algorithm == HashAlgorithm.SHA256:
+                    dup_hash = sha256_file(dup)
+                    score = 0.0 if dup_hash == master_hash else 1.0
+                    if dup_hash == master_hash:
+                        reasons.append("exact_hash")
+                else:
+                    # For perceptual hashes, we'd need to recalculate or store them
+                    # For now, assume they're similar since they're in the same group
+                    score = 0.1  # Default similarity for grouped items
+                    reasons.append("perceptual_hash")
 
-            # File attribute comparisons
-            if os.path.basename(dup) == os.path.basename(master):
-                reasons.append("same_filename")
-            if dup_meta.get("size") == master_meta.get("size"):
-                reasons.append("same_size")
-            if dup_meta.get("created") == master_meta.get("created"):
-                reasons.append("same_created_date")
-            if dup_meta.get("modified") == master_meta.get("modified"):
-                reasons.append("same_modified_date")
+                # File attribute comparisons
+                if os.path.basename(dup) == os.path.basename(master):
+                    reasons.append("same_filename")
+                if dup_meta.get("size") == master_meta.get("size"):
+                    reasons.append("same_size")
+                if dup_meta.get("created") == master_meta.get("created"):
+                    reasons.append("same_created_date")
+                if dup_meta.get("modified") == master_meta.get("modified"):
+                    reasons.append("same_modified_date")
 
-            # Dimension comparison
-            if dup_meta.get("width") == master_meta.get("width") and dup_meta.get(
-                "height"
-            ) == master_meta.get("height"):
-                reasons.append("same_dimensions")
+                # Dimension comparison
+                if dup_meta.get("width") == master_meta.get("width") and dup_meta.get(
+                    "height"
+                ) == master_meta.get("height"):
+                    reasons.append("same_dimensions")
 
-            # Camera/EXIF comparison
-            if (
-                dup_meta.get("camera_make")
-                and master_meta.get("camera_make")
-                and dup_meta.get("camera_make") == master_meta.get("camera_make")
-            ):
-                reasons.append("same_camera_make")
-            if (
-                dup_meta.get("camera_model")
-                and master_meta.get("camera_model")
-                and dup_meta.get("camera_model") == master_meta.get("camera_model")
-            ):
-                reasons.append("same_camera_model")
-            if (
-                dup_meta.get("date_taken")
-                and master_meta.get("date_taken")
-                and dup_meta.get("date_taken") == master_meta.get("date_taken")
-            ):
-                reasons.append("same_date_taken")
+                # Camera/EXIF comparison
+                if (
+                    dup_meta.get("camera_make")
+                    and master_meta.get("camera_make")
+                    and dup_meta.get("camera_make") == master_meta.get("camera_make")
+                ):
+                    reasons.append("same_camera_make")
+                if (
+                    dup_meta.get("camera_model")
+                    and master_meta.get("camera_model")
+                    and dup_meta.get("camera_model") == master_meta.get("camera_model")
+                ):
+                    reasons.append("same_camera_model")
+                if (
+                    dup_meta.get("date_taken")
+                    and master_meta.get("date_taken")
+                    and dup_meta.get("date_taken") == master_meta.get("date_taken")
+                ):
+                    reasons.append("same_date_taken")
 
-            # IPTC/XMP tag comparison
-            if (
-                dup_meta.get("iptc_keywords")
-                and master_meta.get("iptc_keywords")
-                and dup_meta.get("iptc_keywords") == master_meta.get("iptc_keywords")
-            ):
-                reasons.append("same_iptc_keywords")
-            if (
-                dup_meta.get("iptc_caption")
-                and master_meta.get("iptc_caption")
-                and dup_meta.get("iptc_caption") == master_meta.get("iptc_caption")
-            ):
-                reasons.append("same_iptc_caption")
-            if (
-                dup_meta.get("xmp_keywords")
-                and master_meta.get("xmp_keywords")
-                and dup_meta.get("xmp_keywords") == master_meta.get("xmp_keywords")
-            ):
-                reasons.append("same_xmp_keywords")
-            if (
-                dup_meta.get("xmp_title")
-                and master_meta.get("xmp_title")
-                and dup_meta.get("xmp_title") == master_meta.get("xmp_title")
-            ):
-                reasons.append("same_xmp_title")
-            group_entry["duplicates"].append(
-                {
-                    "file": dup,
-                    "score": score,
-                    "reasons": "|".join(reasons),
-                    "name": dup_meta.get("name"),
-                    "path": dup_meta.get("path"),
-                    "size": dup_meta.get("size"),
-                    "created": dup_meta.get("created"),
-                    "modified": dup_meta.get("modified"),
-                    "width": dup_meta.get("width"),
-                    "height": dup_meta.get("height"),
-                    "file_type": dup_meta.get("file_type"),
-                    "camera_make": dup_meta.get("camera_make"),
-                    "camera_model": dup_meta.get("camera_model"),
-                    "date_taken": dup_meta.get("date_taken"),
-                    "quality_score": dup_meta.get("quality_score"),
-                    "iptc_keywords": dup_meta.get("iptc_keywords"),
-                    "iptc_caption": dup_meta.get("iptc_caption"),
-                    "xmp_keywords": dup_meta.get("xmp_keywords"),
-                    "xmp_title": dup_meta.get("xmp_title"),
-                }
-            )
+                # IPTC/XMP tag comparison
+                if (
+                    dup_meta.get("iptc_keywords")
+                    and master_meta.get("iptc_keywords")
+                    and dup_meta.get("iptc_keywords") == master_meta.get("iptc_keywords")
+                ):
+                    reasons.append("same_iptc_keywords")
+                if (
+                    dup_meta.get("iptc_caption")
+                    and master_meta.get("iptc_caption")
+                    and dup_meta.get("iptc_caption") == master_meta.get("iptc_caption")
+                ):
+                    reasons.append("same_iptc_caption")
+                if (
+                    dup_meta.get("xmp_keywords")
+                    and master_meta.get("xmp_keywords")
+                    and dup_meta.get("xmp_keywords") == master_meta.get("xmp_keywords")
+                ):
+                    reasons.append("same_xmp_keywords")
+                if (
+                    dup_meta.get("xmp_title")
+                    and master_meta.get("xmp_title")
+                    and dup_meta.get("xmp_title") == master_meta.get("xmp_title")
+                ):
+                    reasons.append("same_xmp_title")
+                group_entry["duplicates"].append(
+                    {
+                        "file": dup,
+                        "score": score,
+                        "reasons": "|".join(reasons),
+                        "name": dup_meta.get("name"),
+                        "path": dup_meta.get("path"),
+                        "size": dup_meta.get("size"),
+                        "created": dup_meta.get("created"),
+                        "modified": dup_meta.get("modified"),
+                        "width": dup_meta.get("width"),
+                        "height": dup_meta.get("height"),
+                        "file_type": dup_meta.get("file_type"),
+                        "camera_make": dup_meta.get("camera_make"),
+                        "camera_model": dup_meta.get("camera_model"),
+                        "date_taken": dup_meta.get("date_taken"),
+                        "quality_score": dup_meta.get("quality_score"),
+                        "iptc_keywords": dup_meta.get("iptc_keywords"),
+                        "iptc_caption": dup_meta.get("iptc_caption"),
+                        "xmp_keywords": dup_meta.get("xmp_keywords"),
+                        "xmp_title": dup_meta.get("xmp_title"),
+                    }
+                )
             summary.append(group_entry)
 
     except KeyboardInterrupt:

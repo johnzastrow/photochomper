@@ -4,7 +4,16 @@ import time
 from datetime import datetime
 from pathlib import Path
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn  # <-- add SpinnerColumn here
+from rich.progress import (
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    BarColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+    MofNCompleteColumn,
+    TaskProgressColumn,
+)
 from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
