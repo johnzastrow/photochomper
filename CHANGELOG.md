@@ -5,6 +5,68 @@ All notable changes to PhotoChomper will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.10] - 2025-01-04
+
+### Fixed
+- **Report Generation Hanging**: Resolved critical issue where report generation would hang indefinitely
+  - Added comprehensive error handling around metadata extraction operations
+  - Individual file processing errors no longer halt the entire report generation process
+  - Graceful error recovery with continued processing of remaining files
+- **Progress Feedback**: Enhanced debugging capabilities for hanging issues
+  - Detailed progress logging shows exactly which files are being processed
+  - Error-specific logging identifies problematic files for troubleshooting
+  - Clear indication of processing state at group and individual file levels
+
+### Added
+- **Comprehensive Error Handling**: Multi-level error isolation and recovery
+  - Group-level try/catch blocks around master file processing
+  - Duplicate-level try/catch blocks around each duplicate file processing
+  - Skip problematic files rather than stopping entire process
+- **Detailed Progress Logging**: Extensive logging for debugging and monitoring
+  - `"Processing duplicate group X/Y with Z files"`
+  - `"Getting metadata for master file: {path}"`
+  - `"Master metadata extracted, progress: X/Y"`
+  - `"Processing duplicate N/M in group X: {path}"`
+  - `"Duplicate metadata extracted, progress: X/Y"`
+  - Error-specific messages for failed operations
+
+### Changed
+- **Error Recovery Strategy**: From fail-fast to continue-on-error approach
+  - Report generation continues even if individual files fail metadata extraction
+  - Partial success preferred over complete failure
+  - Better user experience with large collections containing problematic files
+
+### Technical Details
+- Enhanced exception handling in export_report() function
+- Added error isolation at both group and duplicate processing levels
+- Maintained all previous structural fixes while adding robustness
+- Comprehensive test suite validating error handling improvements
+
+## [3.1.9] - 2025-01-04
+
+### Fixed
+- **Critical Report Generation Bug**: Resolved structural issue causing empty reports and immediate interruption
+  - Fixed incorrect indentation where entire group processing logic was outside the main loop
+  - Corrected nested loop structure ensuring all duplicate files are processed
+  - Eliminated "Processed 0/30 files" immediate interruption issue
+  - Report files now contain actual data instead of being empty
+
+### Changed
+- **Loop Structure**: Complete correction of nested processing loops
+  - `group_entry` creation moved inside main group processing loop
+  - All duplicate processing logic properly nested within group loop
+  - `summary.append(group_entry)` positioned correctly for each group
+- **Report Generation Flow**: Proper sequential processing of all duplicate groups
+  - Each group now processes its master and duplicate files correctly
+  - Report data accumulates properly across all groups
+  - Final report contains comprehensive data from all processed groups
+
+### Technical Details
+- Fixed critical indentation bug in src/report.py affecting lines 49-183
+- Restructured nested loops to ensure proper execution flow
+- Maintained all previous progress tracking and error handling improvements
+- Created comprehensive structural verification tests
+
 ## [3.1.8] - 2025-09-05
 
 ### Fixed

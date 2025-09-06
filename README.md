@@ -2,7 +2,15 @@
 
 PhotoChomper is a high-performance Python tool for managing massive photo collections (200K+ files) by identifying duplicate images and videos with revolutionary speed optimizations. Version 3.1+ delivers 100-1000x performance improvements through advanced algorithmic innovations, enhanced progress tracking, and intelligent memory management, making it possible to process massive collections in minutes with real-time feedback.
 
-##  Version 3.1.8+ Improved User Experience & Reliability
+##  Version 3.1.10+ Critical Reliability Fixes
+
+- **Fixed Report Generation Hanging** - Resolved critical issue where report generation would hang indefinitely
+- **Comprehensive Error Recovery** - Multi-level error handling prevents single file failures from stopping entire process
+- **Enhanced Progress Logging** - Detailed debugging information shows exactly which files are being processed
+- **Graceful Error Handling** - Individual file processing errors no longer halt report generation
+- **Structural Bug Fix** - Corrected critical indentation bug that caused empty reports (v3.1.9)
+
+##  Version 3.1.8+ Enhanced User Experience & Reliability
 
 - **Robust Error Handling** - Fixed HashCache comparison errors for stable processing
 - **Comprehensive Testing Framework** - Version-specific tests with regression prevention
@@ -41,6 +49,8 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
     - [** Advanced Reporting**](#-advanced-reporting)
     - [** Smart Configuration & Scaling**](#️-smart-configuration--scaling)
   - [Recent Updates](#recent-updates)
+    - [**Version 3.1.10** - Critical Reliability Fixes](#version-3110---critical-reliability-fixes)
+    - [**Version 3.1.9** - Critical Structural Bug Fix](#version-319---critical-structural-bug-fix)
     - [**Version 3.1.8** - Improved User Experience & Reliability](#version-318---improved-user-experience--reliability)
     - [**Version 3.1.0** - Enhanced Progress Tracking & User Experience](#version-310---enhanced-progress-tracking--user-experience)
     - [**Version 3.0** - Performance Revolution](#version-30---performance-revolution)
@@ -142,6 +152,21 @@ PhotoChomper is a high-performance Python tool for managing massive photo collec
 ---
 
 ## Recent Updates
+
+### **Version 3.1.10** - Critical Reliability Fixes  
+**Resolved critical report generation hanging and structural bugs:**
+- 🆕 **Fixed Report Hanging**: Resolved critical issue where report generation would hang indefinitely
+- 🆕 **Comprehensive Error Recovery**: Multi-level error handling prevents single file failures from stopping entire process
+- 🆕 **Enhanced Debug Logging**: Detailed progress logging shows exactly which files are being processed
+- ✅ **Graceful Error Handling**: Individual file processing errors no longer halt report generation
+- ✅ **Partial Success Approach**: Process continues with successful files even if some fail
+
+### **Version 3.1.9** - Critical Structural Bug Fix
+**Fixed fundamental report generation structure:**
+- 🆕 **Report Generation Fix**: Corrected critical indentation bug causing empty reports
+- 🆕 **Loop Structure**: Fixed nested processing loops ensuring all duplicate files are processed
+- ✅ **Data Integrity**: Eliminated "Processed 0/30 files" issue - reports now contain actual data
+- ✅ **Comprehensive Processing**: All duplicate groups now process correctly
 
 ### **Version 3.1.8** - Improved User Experience & Reliability
 **Enhanced user experience with better progress feedback and error handling:**
