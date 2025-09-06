@@ -14,11 +14,12 @@ Current version reflects the enhanced v3.0+ features with:
 - LSH-optimized similarity detection
 """
 
-__version__ = "3.1.10"
-__version_info__ = (3, 1, 10)
+__version__ = "3.1.11"
+__version_info__ = (3, 1, 11)
 
 # Version history tracking
 VERSION_HISTORY = [
+    "3.1.11 - Added timeout protection for metadata extraction to prevent indefinite hanging on problematic files",
     "3.1.10 - Added comprehensive error handling and progress logging to report generation to fix hanging issues",
     "3.1.9 - Fixed critical report generation bug: corrected indentation that caused empty reports and immediate interruption",
     "3.1.8 - Fixed report generation UX with progress tracking and improved KeyboardInterrupt handling",
