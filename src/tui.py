@@ -534,18 +534,24 @@ def run_search(config: dict, config_path: str = None):
             def report_progress_callback(completed: int):
                 progress.update(report_task, completed=completed)
 
+            # Generate timestamped output prefix
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            out_prefix = os.path.join(os.getcwd(), f"duplicates_report_{timestamp}")
+            
             export_report(
                 dupes,
                 formats=["csv", "json", "sqlite"],
+                out_prefix=out_prefix,
                 config_path=config.get("config_file", config_path),
                 exec_time=exec_time,
                 progress_callback=report_progress_callback,
             )
 
         console.print("[bold green]✅ Reports exported successfully:[/bold green]")
-        console.print("   • duplicates_report.csv (spreadsheet format)")
-        console.print("   • duplicates_report.json (structured data)")
-        console.print("   • duplicates_report.db (SQLite database with analytics)")
+        console.print(f"   • {os.path.basename(out_prefix)}.csv (spreadsheet format)")
+        console.print(f"   • {os.path.basename(out_prefix)}.json (structured data)")
+        console.print(f"   • {os.path.basename(out_prefix)}.db (SQLite database with analytics)")
 
         log_action(
             f"Search completed: {len(dupes)} groups ({total_files} files) found | "

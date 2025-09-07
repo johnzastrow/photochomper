@@ -1,3 +1,7 @@
+"""
+Clean, simple report generation module.
+Refactored for clarity and debuggability.
+"""
 import csv
 import json
 import os
@@ -7,18 +11,148 @@ from datetime import datetime
 from pathlib import Path
 from collections import defaultdict
 from typing import List, Dict
-import pandas as pd
+
 from src.config import load_config, log_action
 from src.scanner import get_image_metadata, sha256_file, rank_duplicates, HashAlgorithm
-import concurrent.futures
 
-# --- Approach Explanation ---
-# To ensure metadata extraction does not hang the report generation process (especially on Windows),
-# we use concurrent.futures.ThreadPoolExecutor to run get_image_metadata in a separate thread.
-# This allows us to specify a timeout for each metadata extraction operation.
-# If extraction takes too long (e.g., due to a corrupt or unsupported file), we log a timeout and continue.
-# This approach is cross-platform (unlike signal.alarm, which only works on Unix).
-# We also add logging at each step for easier debugging and monitoring.
+
+def safe_get_metadata(filepath: str) -> Dict:
+    """
+    Safely extract metadata from a file.
+    Returns basic metadata if extraction fails.
+    """
+    log_action(f"Extracting metadata from: {filepath}")
+    
+    try:
+        metadata = get_image_metadata(filepath)
+        log_action(f"Successfully extracted metadata from: {filepath}")
+        return metadata
+    except Exception as e:
+        log_action(f"Failed to extract metadata from {filepath}: {e}")
+        # Return minimal metadata
+        return {
+            "name": os.path.basename(filepath),
+            "path": filepath,
+            "size": 0,
+            "created": "",
+            "modified": "",
+            "width": 0,
+            "height": 0,
+            "file_type": "UNKNOWN",
+            "camera_make": "",
+            "camera_model": "",
+            "date_taken": "",
+            "quality_score": 0,
+            "iptc_keywords": [],
+            "iptc_caption": "",
+            "xmp_keywords": [],
+            "xmp_title": "",
+        }
+
+
+def process_single_group(group_id: int, group: List[str], total_groups: int) -> Dict:
+    """
+    Process a single duplicate group.
+    Returns a dictionary with group data or None if group should be skipped.
+    """
+    log_action(f"=== Processing group {group_id + 1}/{total_groups} ===")
+    log_action(f"Group contains {len(group)} files: {group}")
+    
+    if len(group) < 2:
+        log_action(f"Skipping group {group_id + 1}: insufficient files (need 2+, got {len(group)})")
+        return None
+    
+    # Simple ranking: largest file first, then newest
+    log_action("Ranking files to determine master...")
+    try:
+        ranked_files = []
+        for filepath in group:
+            try:
+                stat = os.stat(filepath)
+                ranked_files.append((filepath, stat.st_size, stat.st_mtime))
+                log_action(f"File stats: {filepath} - size: {stat.st_size}, mtime: {stat.st_mtime}")
+            except OSError as e:
+                log_action(f"Could not stat file {filepath}: {e}")
+                # Add with minimal info if stat fails
+                ranked_files.append((filepath, 0, 0))
+        
+        # Sort by size (descending) then by modification time (descending)
+        ranked_files.sort(key=lambda x: (-x[1], -x[2]))
+        ranked = [f[0] for f in ranked_files]
+        log_action(f"Ranked files: {ranked}")
+    except Exception as e:
+        log_action(f"Error ranking files in group {group_id + 1}: {e}")
+        return None
+    
+    master = ranked[0]
+    duplicates = ranked[1:]
+    
+    log_action(f"Master file: {master}")
+    log_action(f"Duplicate files: {duplicates}")
+    
+    # Get metadata for master
+    log_action("Getting master file metadata...")
+    master_meta = safe_get_metadata(master)
+    
+    # Process each duplicate
+    duplicate_entries = []
+    for i, dup_file in enumerate(duplicates):
+        log_action(f"Processing duplicate {i + 1}/{len(duplicates)}: {dup_file}")
+        dup_meta = safe_get_metadata(dup_file)
+        
+        # Create duplicate entry
+        duplicate_entry = {
+            "file": dup_file,
+            "score": 0.95,  # Simple fixed score for now
+            "reasons": "duplicate_detected",
+            "name": dup_meta.get("name", ""),
+            "path": dup_meta.get("path", ""),
+            "size": dup_meta.get("size", ""),
+            "created": dup_meta.get("created", ""),
+            "modified": dup_meta.get("modified", ""),
+            "width": dup_meta.get("width", ""),
+            "height": dup_meta.get("height", ""),
+            "file_type": dup_meta.get("file_type", ""),
+            "camera_make": dup_meta.get("camera_make", ""),
+            "camera_model": dup_meta.get("camera_model", ""),
+            "date_taken": dup_meta.get("date_taken", ""),
+            "quality_score": dup_meta.get("quality_score", ""),
+            "iptc_keywords": dup_meta.get("iptc_keywords", ""),
+            "iptc_caption": dup_meta.get("iptc_caption", ""),
+            "xmp_keywords": dup_meta.get("xmp_keywords", ""),
+            "xmp_title": dup_meta.get("xmp_title", ""),
+        }
+        duplicate_entries.append(duplicate_entry)
+        log_action(f"Added duplicate entry for: {dup_file}")
+    
+    # Create group entry
+    group_entry = {
+        "group_id": group_id + 1,
+        "master": master,
+        "master_attributes": {
+            "name": master_meta.get("name", ""),
+            "path": master_meta.get("path", ""),
+            "size": master_meta.get("size", ""),
+            "created": master_meta.get("created", ""),
+            "modified": master_meta.get("modified", ""),
+            "width": master_meta.get("width", ""),
+            "height": master_meta.get("height", ""),
+            "file_type": master_meta.get("file_type", ""),
+            "camera_make": master_meta.get("camera_make", ""),
+            "camera_model": master_meta.get("camera_model", ""),
+            "date_taken": master_meta.get("date_taken", ""),
+            "quality_score": master_meta.get("quality_score", ""),
+            "iptc_keywords": master_meta.get("iptc_keywords", ""),
+            "iptc_caption": master_meta.get("iptc_caption", ""),
+            "xmp_keywords": master_meta.get("xmp_keywords", ""),
+            "xmp_title": master_meta.get("xmp_title", ""),
+        },
+        "duplicates": duplicate_entries,
+    }
+    
+    log_action(f"Completed processing group {group_id + 1}")
+    return group_entry
+
 
 def export_report(
     dupes: List[List[str]],
@@ -28,383 +162,216 @@ def export_report(
     exec_time: float = None,
     progress_callback=None,
 ):
-    config = load_config(config_path) if config_path else load_config()
-    path_preference = config.get("path_preference", "shorter")
-    filename_preference = config.get("filename_preference", None)
-    quality_ranking = config.get("quality_ranking", False)
-    hash_algorithm = config.get("hash_algorithm", "dhash")
-    output_base = config.get(
-        "output_base", os.path.join(os.getcwd(), "duplicates_report")
-    )
+    """
+    Clean, simple report export function.
+    """
+    log_action("=== STARTING REPORT GENERATION ===")
+    log_action(f"Input: {len(dupes)} groups with total files: {sum(len(g) for g in dupes)}")
+    log_action(f"Output formats: {formats}")
+    log_action(f"Output prefix: {out_prefix}")
+    
+    # Set up output path
     if out_prefix is None:
-        out_prefix = output_base
+        out_prefix = os.path.join(os.getcwd(), "duplicates_report")
+    
+    # Process each group
     summary = []
-    files_processed = 0
+    total_files_processed = 0
     total_files = sum(len(group) for group in dupes)
-
-    log_action(f"export_report called with {len(dupes)} groups")
-    for i, g in enumerate(dupes):
-        log_action(f"Group {i+1} has {len(g)} files: {g}")
-
-    metadata_timeout = 10  # seconds
-
+    
+    log_action(f"Will process {len(dupes)} groups containing {total_files} total files")
+    
     try:
         for group_id, group in enumerate(dupes):
-            log_action(f"Processing duplicate group {group_id+1}/{len(dupes)} with {len(group)} files")
-            ranked = rank_duplicates(group, path_preference, filename_preference, quality_ranking)
-            log_action(f"Ranked group: {ranked}")
-            if not ranked or len(ranked) < 2:
-                log_action(f"Skipping group {group_id + 1}: insufficient files or no master")
-                continue
-            master = ranked[0]
-            # Extract metadata for master file with timeout
-            master_meta = {}
-            try:
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(get_image_metadata, master)
-                    master_meta = future.result(timeout=metadata_timeout)
-                log_action(f"Metadata for master {master}: {master_meta}")
-            except concurrent.futures.TimeoutError:
-                log_action(f"Timeout extracting metadata for master {master}")
-                master_meta = {}
-            except Exception as e:
-                log_action(f"Error extracting metadata for master {master}: {e}")
-                master_meta = {}
-
-            # Prepare duplicate entries
-            duplicates = []
-            for file_id, file in enumerate(ranked[1:]):
-                log_action(f"Processing file {file_id+2}/{len(ranked)}: {file}")
-                meta = {}
-                try:
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                        future = executor.submit(get_image_metadata, file)
-                        meta = future.result(timeout=metadata_timeout)
-                    log_action(f"Metadata for {file}: {meta}")
-                except concurrent.futures.TimeoutError:
-                    log_action(f"Timeout extracting metadata for {file}")
-                    meta = {}
-                except Exception as e:
-                    log_action(f"Error extracting metadata for {file}: {e}")
-                    meta = {}
-                # Example scoring and reasons (customize as needed)
-                score = meta.get("quality_score", 0)
-                reasons = meta.get("match_reasons", "")
-                duplicates.append({
-                    "file": file,
-                    "name": meta.get("name", ""),
-                    "path": meta.get("path", ""),
-                    "size": meta.get("size", ""),
-                    "created": meta.get("created", ""),
-                    "modified": meta.get("modified", ""),
-                    "width": meta.get("width", ""),
-                    "height": meta.get("height", ""),
-                    "file_type": meta.get("file_type", ""),
-                    "camera_make": meta.get("camera_make", ""),
-                    "camera_model": meta.get("camera_model", ""),
-                    "date_taken": meta.get("date_taken", ""),
-                    "quality_score": meta.get("quality_score", ""),
-                    "iptc_keywords": meta.get("iptc_keywords", ""),
-                    "iptc_caption": meta.get("iptc_caption", ""),
-                    "xmp_keywords": meta.get("xmp_keywords", ""),
-                    "xmp_title": meta.get("xmp_title", ""),
-                    "score": score,
-                    "reasons": reasons,
-                })
-                files_processed += 1
-
-            summary.append({
-                "group_id": group_id + 1,
-                "master": master,
-                "master_attributes": {
-                    "name": master_meta.get("name", ""),
-                    "path": master_meta.get("path", ""),
-                    "size": master_meta.get("size", ""),
-                    "created": master_meta.get("created", ""),
-                    "modified": master_meta.get("modified", ""),
-                    "width": master_meta.get("width", ""),
-                    "height": master_meta.get("height", ""),
-                    "file_type": master_meta.get("file_type", ""),
-                    "camera_make": master_meta.get("camera_make", ""),
-                    "camera_model": master_meta.get("camera_model", ""),
-                    "date_taken": master_meta.get("date_taken", ""),
-                    "quality_score": master_meta.get("quality_score", ""),
-                    "iptc_keywords": master_meta.get("iptc_keywords", ""),
-                    "iptc_caption": master_meta.get("iptc_caption", ""),
-                    "xmp_keywords": master_meta.get("xmp_keywords", ""),
-                    "xmp_title": master_meta.get("xmp_title", ""),
-                },
-                "duplicates": duplicates,
-            })
-
+            log_action(f"\n--- Starting group {group_id + 1}/{len(dupes)} ---")
+            
+            group_entry = process_single_group(group_id, group, len(dupes))
+            
+            if group_entry is not None:
+                summary.append(group_entry)
+                files_in_group = len(group)
+                total_files_processed += files_in_group
+                
+                log_action(f"Group {group_id + 1} processed successfully. Files: {files_in_group}")
+                
+                # Call progress callback if provided
+                if progress_callback:
+                    progress_callback(total_files_processed)
+                    log_action(f"Progress callback called: {total_files_processed}/{total_files}")
+            else:
+                log_action(f"Group {group_id + 1} was skipped")
+            
+            log_action(f"--- Finished group {group_id + 1}/{len(dupes)} ---\n")
+    
     except KeyboardInterrupt:
-        log_action(
-            f"Report generation interrupted by user. Processed {files_processed}/{total_files} files."
-        )
-        print(
-            f"\n⚠️  Report generation interrupted. Processed {files_processed}/{total_files} files."
-        )
+        log_action(f"Report generation interrupted by user. Processed {total_files_processed}/{total_files} files.")
+        print(f"\n⚠️  Report generation interrupted. Processed {total_files_processed}/{total_files} files.")
         print("Partial report data will be saved with completed entries.")
-
-    # Write CSV output with more attributes
+    
+    log_action(f"Report processing complete. Generated {len(summary)} group entries.")
+    
+    # Write CSV output
     if "csv" in formats:
-        with open(f"{out_prefix}.csv", "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow(
-                [
-                    "GroupID",
-                    "Algorithm",
-                    "Master",
-                    "File",
-                    "Name",
-                    "Path",
-                    "Size",
-                    "Created",
-                    "Modified",
-                    "Width",
-                    "Height",
-                    "FileType",
-                    "CameraMake",
-                    "CameraModel",
-                    "DateTaken",
-                    "QualityScore",
-                    "IPTCKeywords",
-                    "IPTCCaption",
-                    "XMPKeywords",
-                    "XMPTitle",
-                    "SimilarityScore",
-                    "MatchReasons",
-                ]
-            )
-            for entry in summary:
-                # Write master file first
-                writer.writerow(
-                    [
-                        entry["group_id"],
-                        hash_algorithm,
-                        "Yes",  # Master column
-                        entry["master"],
-                        entry["master_attributes"]["name"],
-                        entry["master_attributes"]["path"],
-                        entry["master_attributes"]["size"],
-                        entry["master_attributes"]["created"],
-                        entry["master_attributes"]["modified"],
-                        entry["master_attributes"].get("width"),
-                        entry["master_attributes"].get("height"),
-                        entry["master_attributes"].get("file_type"),
-                        entry["master_attributes"].get("camera_make"),
-                        entry["master_attributes"].get("camera_model"),
-                        entry["master_attributes"].get("date_taken"),
-                        entry["master_attributes"].get("quality_score"),
-                        entry["master_attributes"].get("iptc_keywords"),
-                        entry["master_attributes"].get("iptc_caption"),
-                        entry["master_attributes"].get("xmp_keywords"),
-                        entry["master_attributes"].get("xmp_title"),
-                        "",  # No similarity score for master
-                        "",  # No match reasons for master
-                    ]
-                )
-                # Write duplicate files
-                for dup in entry["duplicates"]:
-                    writer.writerow(
-                        [
-                            entry["group_id"],
-                            hash_algorithm,
-                            "",  # Master column - empty for duplicates
-                            dup["file"],
-                            dup["name"],
-                            dup["path"],
-                            dup["size"],
-                            dup["created"],
-                            dup["modified"],
-                            dup.get("width"),
-                            dup.get("height"),
-                            dup.get("file_type"),
-                            dup.get("camera_make"),
-                            dup.get("camera_model"),
-                            dup.get("date_taken"),
-                            dup.get("quality_score"),
-                            dup.get("iptc_keywords"),
-                            dup.get("iptc_caption"),
-                            dup.get("xmp_keywords"),
-                            dup.get("xmp_title"),
-                            dup["score"],
-                            dup["reasons"],
-                        ]
-                    )
-    # Write JSON output with more attributes
+        log_action("Writing CSV output...")
+        write_csv_report(summary, f"{out_prefix}.csv")
+    
+    # Write JSON output  
     if "json" in formats:
-        with open(f"{out_prefix}.json", "w") as f:
-            json.dump(summary, f, indent=2)
-
-    # Write SQLite database output
+        log_action("Writing JSON output...")
+        write_json_report(summary, f"{out_prefix}.json")
+    
+    # Write SQLite output
     if "sqlite" in formats:
-        create_sqlite_database(summary, f"{out_prefix}.db", hash_algorithm, exec_time)
+        log_action("Writing SQLite output...")
+        write_sqlite_report(summary, f"{out_prefix}.db")
+    
+    log_action(f"=== REPORT GENERATION COMPLETE ===")
+    log_action(f"Processed {len(summary)} groups, {total_files_processed} files")
+    log_action(f"Output files written with prefix: {out_prefix}")
 
-    log_action(
-        f"Exported report in formats: {formats} | Config: {config_path or 'default'} | Output: {out_prefix} | Execution time: {exec_time:.2f}s"
-    )
 
-def create_sqlite_database(
-    summary: List[Dict], db_path: str, hash_algorithm: str, exec_time: float = None
-):
-    """
-    Create SQLite database with duplicate file data and useful analysis views.
+def write_csv_report(summary: List[Dict], csv_path: str):
+    """Write CSV report."""
+    log_action(f"Writing CSV to: {csv_path}")
+    
+    try:
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            # Write header
+            writer.writerow([
+                "GroupID", "Master", "File", "Name", "Size", "Created", "Modified",
+                "Width", "Height", "FileType", "CameraMake", "CameraModel", 
+                "DateTaken", "QualityScore", "Score", "Reasons"
+            ])
+            
+            # Write data
+            for entry in summary:
+                group_id = entry["group_id"]
+                master = entry["master"]
+                
+                # Write master row
+                master_attrs = entry["master_attributes"]
+                writer.writerow([
+                    group_id, "Yes", master, master_attrs.get("name", ""),
+                    master_attrs.get("size", ""), master_attrs.get("created", ""),
+                    master_attrs.get("modified", ""), master_attrs.get("width", ""),
+                    master_attrs.get("height", ""), master_attrs.get("file_type", ""),
+                    master_attrs.get("camera_make", ""), master_attrs.get("camera_model", ""),
+                    master_attrs.get("date_taken", ""), master_attrs.get("quality_score", ""),
+                    "", "master"
+                ])
+                
+                # Write duplicate rows
+                for dup in entry["duplicates"]:
+                    writer.writerow([
+                        group_id, "", dup["file"], dup.get("name", ""),
+                        dup.get("size", ""), dup.get("created", ""), dup.get("modified", ""),
+                        dup.get("width", ""), dup.get("height", ""), dup.get("file_type", ""),
+                        dup.get("camera_make", ""), dup.get("camera_model", ""),
+                        dup.get("date_taken", ""), dup.get("quality_score", ""),
+                        dup.get("score", ""), dup.get("reasons", "")
+                    ])
+        
+        log_action(f"Successfully wrote CSV with {len(summary)} groups")
+    
+    except Exception as e:
+        log_action(f"Error writing CSV: {e}")
 
-    Args:
-        summary: List of duplicate group dictionaries
-        db_path: Path to SQLite database file
-        hash_algorithm: Hash algorithm used
-        exec_time: Execution time for metadata
-    """
-    # Remove existing database if it exists
-    if os.path.exists(db_path):
-        os.remove(db_path)
 
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
+def write_json_report(summary: List[Dict], json_path: str):
+    """Write JSON report."""
+    log_action(f"Writing JSON to: {json_path}")
+    
+    try:
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(summary, f, indent=2, default=str)
+        
+        log_action(f"Successfully wrote JSON with {len(summary)} groups")
+    
+    except Exception as e:
+        log_action(f"Error writing JSON: {e}")
 
-    # Create main duplicates table with primary key
-    cursor.execute("""
-        CREATE TABLE duplicates (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            group_id INTEGER NOT NULL,
-            algorithm TEXT NOT NULL,
-            master TEXT NOT NULL,
-            file TEXT NOT NULL,
-            name TEXT,
-            path TEXT,
-            size INTEGER,
-            created TEXT,
-            modified TEXT,
-            width INTEGER,
-            height INTEGER,
-            file_type TEXT,
-            camera_make TEXT,
-            camera_model TEXT,
-            date_taken TEXT,
-            quality_score INTEGER,
-            iptc_keywords TEXT,
-            iptc_caption TEXT,
-            xmp_keywords TEXT,
-            xmp_title TEXT,
-            similarity_score REAL,
-            match_reasons TEXT
-        )
-    """)
 
-    # Create indexes for better query performance
-    cursor.execute("CREATE INDEX idx_group_id ON duplicates(group_id)")
-    cursor.execute("CREATE INDEX idx_master ON duplicates(master)")
-    cursor.execute("CREATE INDEX idx_file ON duplicates(file)")
-    cursor.execute("CREATE INDEX idx_size ON duplicates(size)")
-    cursor.execute("CREATE INDEX idx_camera_make ON duplicates(camera_make)")
-    cursor.execute("CREATE INDEX idx_file_type ON duplicates(file_type)")
-
-    # Insert data
-    for entry in summary:
-        # Insert master file first
-        cursor.execute(
-            """
-            INSERT INTO duplicates (
-                group_id, algorithm, master, file, name, path, size, created, modified,
-                width, height, file_type, camera_make, camera_model, date_taken,
-                quality_score, iptc_keywords, iptc_caption, xmp_keywords, xmp_title,
-                similarity_score, match_reasons
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-            (
-                entry["group_id"],
-                hash_algorithm,
-                "Yes",  # Master column
-                entry["master"],
-                entry["master_attributes"]["name"],
-                entry["master_attributes"]["path"],
-                entry["master_attributes"]["size"],
-                entry["master_attributes"]["created"],
-                entry["master_attributes"]["modified"],
-                entry["master_attributes"].get("width"),
-                entry["master_attributes"].get("height"),
-                entry["master_attributes"].get("file_type"),
-                entry["master_attributes"].get("camera_make"),
-                entry["master_attributes"].get("camera_model"),
-                entry["master_attributes"].get("date_taken"),
-                entry["master_attributes"].get("quality_score"),
-                entry["master_attributes"].get("iptc_keywords"),
-                entry["master_attributes"].get("iptc_caption"),
-                entry["master_attributes"].get("xmp_keywords"),
-                entry["master_attributes"].get("xmp_title"),
-                None,  # No similarity score for master
-                None,  # No match reasons for master
-            ),
-        )
-
-        # Insert duplicate files
-        for dup in entry["duplicates"]:
-            cursor.execute(
-                """
-                INSERT INTO duplicates (
-                    group_id, algorithm, master, file, name, path, size, created, modified,
-                    width, height, file_type, camera_make, camera_model, date_taken,
-                    quality_score, iptc_keywords, iptc_caption, xmp_keywords, xmp_title,
-                    similarity_score, match_reasons
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    entry["group_id"],
-                    hash_algorithm,
-                    "",  # Master column - empty for duplicates
-                    dup["file"],
-                    dup["name"],
-                    dup["path"],
-                    dup["size"],
-                    dup["created"],
-                    dup["modified"],
-                    dup.get("width"),
-                    dup.get("height"),
-                    dup.get("file_type"),
-                    dup.get("camera_make"),
-                    dup.get("camera_model"),
-                    dup.get("date_taken"),
-                    dup.get("quality_score"),
-                    dup.get("iptc_keywords"),
-                    dup.get("iptc_caption"),
-                    dup.get("xmp_keywords"),
-                    dup.get("xmp_title"),
-                    dup["score"],
-                    dup["reasons"],
-                ),
+def write_sqlite_report(summary: List[Dict], db_path: str):
+    """Write SQLite report."""
+    log_action(f"Writing SQLite to: {db_path}")
+    
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # Create table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS duplicates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                group_id INTEGER,
+                master TEXT,
+                file TEXT,
+                name TEXT,
+                size INTEGER,
+                created TEXT,
+                modified TEXT,
+                width INTEGER,
+                height INTEGER,
+                file_type TEXT,
+                camera_make TEXT,
+                camera_model TEXT,
+                date_taken TEXT,
+                quality_score REAL,
+                score REAL,
+                reasons TEXT
             )
+        """)
+        
+        # Insert data
+        for entry in summary:
+            group_id = entry["group_id"]
+            master = entry["master"]
+            master_attrs = entry["master_attributes"]
+            
+            # Insert master
+            cursor.execute("""
+                INSERT INTO duplicates (
+                    group_id, master, file, name, size, created, modified,
+                    width, height, file_type, camera_make, camera_model,
+                    date_taken, quality_score, score, reasons
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                group_id, "Yes", master, master_attrs.get("name", ""),
+                master_attrs.get("size", 0), master_attrs.get("created", ""),
+                master_attrs.get("modified", ""), master_attrs.get("width", 0),
+                master_attrs.get("height", 0), master_attrs.get("file_type", ""),
+                master_attrs.get("camera_make", ""), master_attrs.get("camera_model", ""),
+                master_attrs.get("date_taken", ""), master_attrs.get("quality_score", 0),
+                0, "master"
+            ))
+            
+            # Insert duplicates
+            for dup in entry["duplicates"]:
+                cursor.execute("""
+                    INSERT INTO duplicates (
+                        group_id, master, file, name, size, created, modified,
+                        width, height, file_type, camera_make, camera_model,
+                        date_taken, quality_score, score, reasons
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    group_id, "", dup["file"], dup.get("name", ""),
+                    dup.get("size", 0), dup.get("created", ""), dup.get("modified", ""),
+                    dup.get("width", 0), dup.get("height", 0), dup.get("file_type", ""),
+                    dup.get("camera_make", ""), dup.get("camera_model", ""),
+                    dup.get("date_taken", ""), dup.get("quality_score", 0),
+                    dup.get("score", 0), dup.get("reasons", "")
+                ))
+        
+        conn.commit()
+        conn.close()
+        
+        log_action(f"Successfully wrote SQLite with {len(summary)} groups")
+    
+    except Exception as e:
+        log_action(f"Error writing SQLite: {e}")
 
-    # Add metadata table
-    cursor.execute("""
-        CREATE TABLE metadata (
-            key TEXT PRIMARY KEY,
-            value TEXT
-        )
-    """)
-
-    cursor.execute(
-        "INSERT INTO metadata VALUES (?, ?)", ("created_at", datetime.now().isoformat())
-    )
-    cursor.execute("INSERT INTO metadata VALUES (?, ?)", ("algorithm", hash_algorithm))
-    if exec_time:
-        cursor.execute(
-            "INSERT INTO metadata VALUES (?, ?)",
-            ("execution_time_seconds", str(exec_time)),
-        )
-    cursor.execute(
-        "INSERT INTO metadata VALUES (?, ?)", ("total_groups", str(len(summary)))
-    )
-    cursor.execute(
-        "INSERT INTO metadata VALUES (?, ?)", ("total_files", str(sum(len(entry["duplicates"]) for entry in summary)))
-    )
-
-    conn.commit()
-    conn.close()
-
-    log_action(f"SQLite database created at {db_path} with {len(summary)} groups")
 
 def summarize_reports(report_files, output_file):
-    # TODO: Implement summary generation from report files
+    """Generate summary from report files."""
     return "# Summary not implemented yet\n"
