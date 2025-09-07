@@ -18,20 +18,60 @@ from src.scanner import get_image_metadata, sha256_file, rank_duplicates, HashAl
 
 def safe_get_metadata(filepath: str) -> Dict:
     """
-    Safely extract metadata from a file.
-    Returns basic metadata if extraction fails.
+    Ultra-safe metadata extraction that never hangs.
+    Only uses basic file system operations.
     """
-    log_action(f"Extracting metadata from: {filepath}")
+    log_action(f"Getting basic metadata for: {filepath}")
     
     try:
-        metadata = get_image_metadata(filepath)
-        log_action(f"Successfully extracted metadata from: {filepath}")
+        # Get basic file stats - this should never hang
+        stat_info = os.stat(filepath)
+        file_size = stat_info.st_size
+        modified_time = time.ctime(stat_info.st_mtime)
+        created_time = time.ctime(stat_info.st_ctime)
+        
+        # Basic file info
+        name = os.path.basename(filepath)
+        file_ext = os.path.splitext(name)[1].lower()
+        
+        # Simple file type detection
+        image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp'}
+        video_extensions = {'.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv'}
+        
+        if file_ext in image_extensions:
+            file_type = "IMAGE"
+        elif file_ext in video_extensions:
+            file_type = "VIDEO"
+        else:
+            file_type = "OTHER"
+        
+        metadata = {
+            "name": name,
+            "path": filepath,
+            "size": file_size,
+            "created": created_time,
+            "modified": modified_time,
+            "width": 0,  # Not extracting image dimensions to avoid hanging
+            "height": 0,
+            "file_type": file_type,
+            "camera_make": "",
+            "camera_model": "",
+            "date_taken": modified_time,  # Use file modification as fallback
+            "quality_score": 0,
+            "iptc_keywords": [],
+            "iptc_caption": "",
+            "xmp_keywords": [],
+            "xmp_title": "",
+        }
+        
+        log_action(f"Successfully extracted basic metadata for: {name} ({file_size} bytes)")
         return metadata
+        
     except Exception as e:
-        log_action(f"Failed to extract metadata from {filepath}: {e}")
-        # Return minimal metadata
+        log_action(f"Error getting file stats for {filepath}: {e}")
+        # Return absolute minimal metadata
         return {
-            "name": os.path.basename(filepath),
+            "name": os.path.basename(filepath) if filepath else "unknown",
             "path": filepath,
             "size": 0,
             "created": "",

@@ -14,11 +14,12 @@ Current version reflects the enhanced v3.0+ features with:
 - LSH-optimized similarity detection
 """
 
-__version__ = "3.2.1"
-__version_info__ = (3, 2, 1)
+__version__ = "3.2.2"
+__version_info__ = (3, 2, 2)
 
 # Version history tracking
 VERSION_HISTORY = [
+    "3.2.2 - Replaced complex metadata extraction with ultra-safe basic file stats to prevent hanging",
     "3.2.1 - Fixed hanging issue by replacing complex rank_duplicates with simple file size/date ranking",
     "3.2.0 - Complete refactor of report generation: clean, simple, debuggable code with comprehensive logging",
     "3.1.11 - Added timeout protection for metadata extraction to prevent indefinite hanging on problematic files",
