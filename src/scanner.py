@@ -84,7 +84,7 @@ class HashCache:
             log_action(f"Error initializing hash cache: {e}")
             self.conn = None
     
-    def get_cached_hash(self, filepath: str, algorithm: HashAlgorithm) -> Optional[HashResult]:
+    def get_cached_hash(self, filepath: str, algorithm: 'HashAlgorithm') -> Optional['HashResult']:
         """Retrieve cached hash if file hasn't changed."""
         if not self.conn:
             return None
@@ -122,7 +122,7 @@ class HashCache:
         
         return None
     
-    def cache_hash(self, result: HashResult):
+    def cache_hash(self, result: 'HashResult'):
         """Store hash result in cache."""
         if not self.conn or not result.file_path:
             return
