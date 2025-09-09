@@ -927,8 +927,10 @@ def get_image_metadata(filepath: str) -> Dict[str, Any]:
     """
     Extract file metadata for ranking/quality heuristics.
     """
+    log_action(f"get_image_metadata started for: {filepath}")
     meta = {}
     try:
+        log_action(f"Extracting basic file info for: {filepath}")
         meta = {
             "created": os.path.getctime(filepath),
             "modified": os.path.getmtime(filepath),
@@ -937,17 +939,26 @@ def get_image_metadata(filepath: str) -> Dict[str, Any]:
             "path": filepath,
             "file_type": get_file_type(filepath).value,
         }
+        log_action(f"Basic file info extracted. File type: {get_file_type(filepath).value}")
         file_type = get_file_type(filepath)
         if file_type == FileType.IMAGE:
+            log_action(f"Processing image file: {filepath}")
             try:
                 if Image:
+                    log_action(f"Opening image with PIL: {filepath}")
                     with Image.open(filepath) as img:
+                        log_action(f"PIL image opened successfully: {filepath}")
                         meta["width"] = img.width
                         meta["height"] = img.height
                         meta["mode"] = img.mode
                         meta["format"] = img.format
+                        log_action(f"Basic image properties extracted: {img.width}x{img.height}, {img.format}")
+                        
+                        log_action(f"Checking for EXIF data: {filepath}")
                         if hasattr(img, "_getexif") and img._getexif():
+                            log_action(f"Extracting EXIF data: {filepath}")
                             exif_dict = img._getexif()
+                            log_action(f"EXIF data extracted successfully: {filepath}")
                             meta["exif_data"] = exif_dict
                             if 272 in exif_dict:
                                 meta["camera_make"] = exif_dict[272]
@@ -1031,8 +1042,33 @@ def get_image_metadata(filepath: str) -> Dict[str, Any]:
         # --- FIX: IPTCInfo3 .get() -> dict access ---
         if file_type == FileType.IMAGE and iptcinfo3 is not None:
             try:
-                with suppress_stdout_stderr():
-                    info = iptcinfo3.IPTCInfo(filepath)
+                # Add timeout protection for IPTC parsing (common hanging point)
+                import threading
+                
+                iptc_result = {}
+                iptc_exception = {}
+                
+                def extract_iptc():
+                    try:
+                        with suppress_stdout_stderr():
+                            iptc_result['info'] = iptcinfo3.IPTCInfo(filepath)
+                    except Exception as e:
+                        iptc_exception['error'] = e
+                
+                # Run IPTC extraction with 10-second timeout
+                thread = threading.Thread(target=extract_iptc)
+                thread.daemon = True
+                thread.start()
+                thread.join(10)  # 10 second timeout
+                
+                if thread.is_alive():
+                    log_action(f"IPTC extraction timeout for {filepath}")
+                    info = None
+                elif 'error' in iptc_exception:
+                    log_action(f"IPTC extraction error for {filepath}: {iptc_exception['error']}")
+                    info = None
+                else:
+                    info = iptc_result.get('info')
                 if info:
                     try:
                         meta["iptc_keywords"] = (
@@ -1061,19 +1097,44 @@ def get_image_metadata(filepath: str) -> Dict[str, Any]:
 
         if file_type == FileType.IMAGE and libxmp is not None:
             try:
-                xmpfile = XMPFiles(file_path=filepath)
-                xmp = xmpfile.get_xmp()
-                if xmp:
-                    meta["xmp_keywords"] = xmp.get_property(
-                        libxmp.consts.XMP_NS_DC, "subject"
-                    )
-                    meta["xmp_title"] = xmp.get_property(
-                        libxmp.consts.XMP_NS_DC, "title"
-                    )
-                    meta["xmp_description"] = xmp.get_property(
-                        libxmp.consts.XMP_NS_DC, "description"
-                    )
-                xmpfile.close_file()
+                # Add timeout protection for XMP parsing (another common hanging point)
+                import threading
+                
+                xmp_result = {}
+                xmp_exception = {}
+                
+                def extract_xmp():
+                    try:
+                        xmpfile = XMPFiles(file_path=filepath)
+                        xmp = xmpfile.get_xmp()
+                        if xmp:
+                            xmp_result["xmp_keywords"] = xmp.get_property(
+                                libxmp.consts.XMP_NS_DC, "subject"
+                            )
+                            xmp_result["xmp_title"] = xmp.get_property(
+                                libxmp.consts.XMP_NS_DC, "title"
+                            )
+                            xmp_result["xmp_description"] = xmp.get_property(
+                                libxmp.consts.XMP_NS_DC, "description"
+                            )
+                        xmpfile.close_file()
+                    except Exception as e:
+                        xmp_exception['error'] = e
+                
+                # Run XMP extraction with 10-second timeout
+                thread = threading.Thread(target=extract_xmp)
+                thread.daemon = True
+                thread.start()
+                thread.join(10)  # 10 second timeout
+                
+                if thread.is_alive():
+                    log_action(f"XMP extraction timeout for {filepath}")
+                elif 'error' in xmp_exception:
+                    log_action(f"XMP extraction error for {filepath}: {xmp_exception['error']}")
+                else:
+                    # Add extracted XMP data to metadata
+                    meta.update(xmp_result)
+                    
             except Exception as e:
                 log_action(f"Error reading XMP for {filepath}: {e}")
 

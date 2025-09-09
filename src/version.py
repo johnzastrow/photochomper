@@ -14,11 +14,13 @@ Current version reflects the enhanced v3.0+ features with:
 - LSH-optimized similarity detection
 """
 
-__version__ = "3.1.11"
-__version_info__ = (3, 1, 11)
+__version__ = "3.1.13"
+__version_info__ = (3, 1, 13)
 
 # Version history tracking
 VERSION_HISTORY = [
+    "3.1.13 - Fixed critical hanging issue by replacing complex metadata extraction with simplified approach, preventing indefinite hangs during report generation",
+    "3.1.12 - Fixed critical report generation hanging with robust cross-platform threading-based timeout protection for IPTC/XMP metadata extraction",
     "3.1.11 - Added timeout protection for metadata extraction to prevent indefinite hanging on problematic files",
     "3.1.10 - Added comprehensive error handling and progress logging to report generation to fix hanging issues",
     "3.1.9 - Fixed critical report generation bug: corrected indentation that caused empty reports and immediate interruption",

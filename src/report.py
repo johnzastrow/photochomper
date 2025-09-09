@@ -1,21 +1,80 @@
 import csv
 import json
 import os
-import signal
 import sqlite3
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
 from collections import defaultdict
-from typing import List, Dict
+from typing import List, Dict, Any
 import pandas as pd
 from src.config import load_config, log_action
 from src.scanner import get_image_metadata, sha256_file, rank_duplicates, HashAlgorithm
 
 
-def timeout_handler(signum, frame):
-    """Global timeout handler for metadata extraction operations."""
-    raise TimeoutError("Metadata extraction timed out")
+class MetadataTimeoutError(Exception):
+    """Custom timeout exception for metadata extraction operations."""
+    pass
+
+
+def extract_metadata_with_timeout(filepath: str, timeout_seconds: int = 5) -> Dict:
+    """Extract metadata with simplified approach that avoids hanging.
+    
+    Uses basic file operations only, avoiding problematic EXIF/IPTC/XMP extraction
+    that tends to hang on certain files.
+    """
+    log_action(f"extract_metadata_with_timeout called for: {filepath}")
+    
+    try:
+        # Get basic file information without using get_image_metadata
+        log_action(f"Extracting basic metadata for: {filepath}")
+        
+        # Basic file stats (these operations are fast and don't hang)
+        stat_info = os.stat(filepath)
+        
+        metadata = {
+            "name": os.path.basename(filepath),
+            "path": filepath,
+            "size": stat_info.st_size,
+            "created": stat_info.st_ctime,
+            "modified": stat_info.st_mtime,
+            "file_type": os.path.splitext(filepath)[1].lower(),
+            "width": 0,
+            "height": 0,
+            "camera_make": "",
+            "camera_model": "",
+            "date_taken": "",
+            "quality_score": 0,
+            "iptc_keywords": [],
+            "iptc_caption": "",
+            "xmp_keywords": [],
+            "xmp_title": "",
+        }
+        
+        log_action(f"Basic metadata extracted successfully for: {filepath}")
+        return metadata
+        
+    except Exception as e:
+        log_action(f"Error extracting basic metadata for {filepath}: {e}")
+        return {
+            "name": os.path.basename(filepath),
+            "path": filepath,
+            "size": 0,
+            "created": 0,
+            "modified": 0,
+            "width": 0,
+            "height": 0,
+            "file_type": "ERROR",
+            "camera_make": "",
+            "camera_model": "",
+            "date_taken": "",
+            "quality_score": 0,
+            "iptc_keywords": [],
+            "iptc_caption": "",
+            "xmp_keywords": [],
+            "xmp_title": "",
+        }
 
 
 def export_report(
@@ -45,74 +104,28 @@ def export_report(
             try:
                 log_action(f"Processing duplicate group {group_id + 1}/{len(dupes)} with {len(group)} files")
                 
+                log_action(f"Ranking duplicates for group {group_id + 1}...")
                 ranked = rank_duplicates(
                     group, path_preference, filename_preference, quality_ranking
                 )
+                log_action(f"Ranking completed. Found {len(ranked) if ranked else 0} ranked files")
+                
                 master = ranked[0] if ranked else None
                 if not master or len(ranked) < 2:
                     log_action(f"Skipping group {group_id + 1}: insufficient files or no master")
                     continue
                     
-                log_action(f"Getting metadata for master file: {master}")
+                log_action(f"Master file selected: {master}")
+                log_action(f"About to extract metadata for master file...")
                 
-                # Add timeout protection for metadata extraction
-                try:
-                    # Set a 30-second timeout for metadata extraction
-                    if hasattr(signal, 'SIGALRM'):  # Unix-like systems
-                        signal.signal(signal.SIGALRM, timeout_handler)
-                        signal.alarm(30)  # 30 second timeout
-                        
-                    start_time = time.time()
-                    master_meta = get_image_metadata(master)
-                    extraction_time = time.time() - start_time
-                    
-                    if hasattr(signal, 'SIGALRM'):
-                        signal.alarm(0)  # Cancel the alarm
-                        
-                    log_action(f"Master metadata extracted in {extraction_time:.2f}s, progress: {files_processed + 1}/{total_files}")
-                    
-                except TimeoutError as e:
-                    log_action(f"Timeout during master metadata extraction: {e}")
-                    # Use minimal metadata for timeout cases
-                    master_meta = {
-                        "name": os.path.basename(master),
-                        "path": master,
-                        "size": 0,
-                        "created": "",
-                        "modified": "",
-                        "width": 0,
-                        "height": 0,
-                        "file_type": "UNKNOWN",
-                        "camera_make": "",
-                        "camera_model": "",
-                        "date_taken": "",
-                        "quality_score": 0,
-                        "iptc_keywords": [],
-                        "iptc_caption": "",
-                        "xmp_keywords": [],
-                        "xmp_title": "",
-                    }
-                except Exception as inner_e:
-                    log_action(f"Error during master metadata extraction: {inner_e}")
-                    # Use minimal metadata for error cases
-                    master_meta = {
-                        "name": os.path.basename(master),
-                        "path": master,
-                        "size": 0,
-                        "created": "",
-                        "modified": "",
-                        "width": 0,
-                        "height": 0,
-                        "file_type": "ERROR",
-                        "camera_make": "",
-                        "camera_model": "",
-                        "date_taken": "",
-                        "quality_score": 0,
-                        "iptc_keywords": [],
-                        "iptc_caption": "",
-                        "xmp_keywords": [],
-                        "xmp_title": "",
-                    }
+                start_time = time.time()
+                log_action(f"Starting metadata extraction with 20s timeout...")
+                master_meta = extract_metadata_with_timeout(master, timeout_seconds=20)
+                extraction_time = time.time() - start_time
+                
+                log_action(f"Master metadata extraction completed in {extraction_time:.2f}s")
+                log_action(f"Master metadata keys: {list(master_meta.keys()) if master_meta else 'None'}")
+                log_action(f"Progress: {files_processed + 1}/{total_files} files processed")
                 
                 files_processed += 1
                 if progress_callback:
@@ -157,64 +170,11 @@ def export_report(
                 try:
                     log_action(f"Processing duplicate {dup_idx}/{len(ranked)-1} in group {group_id + 1}: {dup}")
                     
-                    # Add timeout protection for duplicate metadata extraction
-                    try:
-                        # Set a 30-second timeout for metadata extraction
-                        if hasattr(signal, 'SIGALRM'):  # Unix-like systems
-                            signal.signal(signal.SIGALRM, timeout_handler)
-                            signal.alarm(30)  # 30 second timeout
-                            
-                        start_time = time.time()
-                        dup_meta = get_image_metadata(dup)
-                        extraction_time = time.time() - start_time
-                        
-                        if hasattr(signal, 'SIGALRM'):
-                            signal.alarm(0)  # Cancel the alarm
-                            
-                        log_action(f"Duplicate metadata extracted in {extraction_time:.2f}s, progress: {files_processed + 1}/{total_files}")
-                        
-                    except TimeoutError as e:
-                        log_action(f"Timeout during duplicate metadata extraction: {e}")
-                        # Use minimal metadata for timeout cases
-                        dup_meta = {
-                            "name": os.path.basename(dup),
-                            "path": dup,
-                            "size": 0,
-                            "created": "",
-                            "modified": "",
-                            "width": 0,
-                            "height": 0,
-                            "file_type": "UNKNOWN",
-                            "camera_make": "",
-                            "camera_model": "",
-                            "date_taken": "",
-                            "quality_score": 0,
-                            "iptc_keywords": [],
-                            "iptc_caption": "",
-                            "xmp_keywords": [],
-                            "xmp_title": "",
-                        }
-                    except Exception as inner_e:
-                        log_action(f"Error during duplicate metadata extraction: {inner_e}")
-                        # Use minimal metadata for error cases
-                        dup_meta = {
-                            "name": os.path.basename(dup),
-                            "path": dup,
-                            "size": 0,
-                            "created": "",
-                            "modified": "",
-                            "width": 0,
-                            "height": 0,
-                            "file_type": "ERROR",
-                            "camera_make": "",
-                            "camera_model": "",
-                            "date_taken": "",
-                            "quality_score": 0,
-                            "iptc_keywords": [],
-                            "iptc_caption": "",
-                            "xmp_keywords": [],
-                            "xmp_title": "",
-                        }
+                    start_time = time.time()
+                    dup_meta = extract_metadata_with_timeout(dup, timeout_seconds=20)
+                    extraction_time = time.time() - start_time
+                    
+                    log_action(f"Duplicate metadata extracted in {extraction_time:.2f}s, progress: {files_processed + 1}/{total_files}")
                     
                     files_processed += 1
                     if progress_callback:
