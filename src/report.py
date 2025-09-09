@@ -476,10 +476,10 @@ def create_sqlite_database(
                 entry["master_attributes"].get("camera_model"),
                 entry["master_attributes"].get("date_taken"),
                 entry["master_attributes"].get("quality_score"),
-                entry["master_attributes"].get("iptc_keywords"),
-                entry["master_attributes"].get("iptc_caption"),
-                entry["master_attributes"].get("xmp_keywords"),
-                entry["master_attributes"].get("xmp_title"),
+                ", ".join(entry["master_attributes"].get("iptc_keywords", [])) if isinstance(entry["master_attributes"].get("iptc_keywords"), list) else entry["master_attributes"].get("iptc_keywords", ""),
+                entry["master_attributes"].get("iptc_caption", ""),
+                ", ".join(entry["master_attributes"].get("xmp_keywords", [])) if isinstance(entry["master_attributes"].get("xmp_keywords"), list) else entry["master_attributes"].get("xmp_keywords", ""),
+                entry["master_attributes"].get("xmp_title", ""),
                 None,  # No similarity score for master
                 None,  # No match reasons for master
             ),
@@ -513,12 +513,12 @@ def create_sqlite_database(
                     dup.get("camera_model"),
                     dup.get("date_taken"),
                     dup.get("quality_score"),
-                    dup.get("iptc_keywords"),
-                    dup.get("iptc_caption"),
-                    dup.get("xmp_keywords"),
-                    dup.get("xmp_title"),
+                    ", ".join(dup.get("iptc_keywords", [])) if isinstance(dup.get("iptc_keywords"), list) else dup.get("iptc_keywords", ""),
+                    dup.get("iptc_caption", ""),
+                    ", ".join(dup.get("xmp_keywords", [])) if isinstance(dup.get("xmp_keywords"), list) else dup.get("xmp_keywords", ""),
+                    dup.get("xmp_title", ""),
                     dup["score"],
-                    dup["reasons"],
+                    ", ".join(dup["reasons"]) if isinstance(dup["reasons"], list) else dup["reasons"],
                 ),
             )
 

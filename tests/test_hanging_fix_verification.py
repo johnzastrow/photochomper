@@ -7,8 +7,8 @@ import os
 import sys
 import time
 
-# Add the src directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+# Add the src directory to the path (from tests directory)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 try:
     from report import extract_metadata_with_timeout
