@@ -19,7 +19,7 @@ __version_info__ = (3, 1, 14)
 
 # Version history tracking
 VERSION_HISTORY = [
-    "3.1.14 - Fixed EXIF extraction hanging by adding timeout protection to PIL's _getexif() method, completing the metadata hanging fix started in v3.1.13",
+    "3.1.14 - MAJOR FIX: Completely resolved critical hanging issues that were blocking PhotoChomper execution - eliminated EXIF extraction hanging with smart file detection, replaced problematic get_image_metadata() calls in report generation with safe extract_metadata_with_timeout(), and fixed SQLite list parameter errors for full end-to-end functionality",
     "3.1.13 - Fixed critical hanging issue by replacing complex metadata extraction with simplified approach, preventing indefinite hangs during report generation",
     "3.1.12 - Fixed critical report generation hanging with robust cross-platform threading-based timeout protection for IPTC/XMP metadata extraction",
     "3.1.11 - Added timeout protection for metadata extraction to prevent indefinite hanging on problematic files",
