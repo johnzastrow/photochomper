@@ -4,6 +4,7 @@ import concurrent.futures
 import gc
 import sqlite3
 import json
+import platform
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple, Iterator, Generator
 from enum import Enum
@@ -40,8 +41,13 @@ except ImportError:
     iptcinfo3 = None
 
 try:
-    import libxmp
-    from libxmp import XMPFiles, XMPMeta
+    # Skip XMP library on Windows due to Exempi dependency issues
+    if platform.system() == "Windows":
+        libxmp = None
+        log_action("Skipping XMP metadata extraction on Windows (Exempi library not available)")
+    else:
+        import libxmp
+        from libxmp import XMPFiles, XMPMeta
 except ImportError:
     libxmp = None
 
@@ -52,6 +58,31 @@ except ImportError:
 
 BACKUP_DIR = "photochomper_backup"
 HASH_CACHE_DB = "photochomper_hash_cache.db"
+
+class HashAlgorithm(Enum):
+    """Supported hash algorithms for duplicate detection."""
+    SHA256 = "sha256"          # Exact content hash
+    DHASH = "dhash"            # Difference hash (perceptual)
+    PHASH = "phash"            # Perceptual hash
+    AHASH = "ahash"            # Average hash
+    WHASH = "whash"            # Wavelet hash
+
+class FileType(Enum):
+    """Supported file types."""
+    IMAGE = "image"
+    VIDEO = "video"
+    UNKNOWN = "unknown"
+
+@dataclass
+class HashResult:
+    """Container for hash computation results."""
+    algorithm: HashAlgorithm
+    hash_value: str
+    file_path: str
+    file_type: FileType
+    sha256_hash: str = ""  # Always calculated SHA256 hash
+    similarity_score: float = 0.0  # Similarity score for comparison
+    error: Optional[str] = None
 
 class HashCache:
     """Memory-efficient SQLite-based hash cache to avoid recomputing unchanged files."""
@@ -171,31 +202,6 @@ class HashCache:
         if self.conn:
             self.conn.close()
             self.conn = None
-
-class HashAlgorithm(Enum):
-    """Supported hash algorithms for duplicate detection."""
-    SHA256 = "sha256"          # Exact content hash
-    DHASH = "dhash"            # Difference hash (perceptual)
-    PHASH = "phash"            # Perceptual hash
-    AHASH = "ahash"            # Average hash
-    WHASH = "whash"            # Wavelet hash
-
-class FileType(Enum):
-    """Supported file types."""
-    IMAGE = "image"
-    VIDEO = "video"
-    UNKNOWN = "unknown"
-
-@dataclass
-class HashResult:
-    """Container for hash computation results."""
-    algorithm: HashAlgorithm
-    hash_value: str
-    file_path: str
-    file_type: FileType
-    sha256_hash: str = ""  # Always calculated SHA256 hash
-    similarity_score: float = 0.0  # Similarity score for comparison
-    error: Optional[str] = None
 
 @dataclass
 class SimilarityMatch:

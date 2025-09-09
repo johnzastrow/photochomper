@@ -16,6 +16,7 @@ import threading
 import json
 import csv
 import time
+import platform
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any
@@ -26,8 +27,12 @@ try:
 except ImportError:
     iptcinfo3 = None
 try:
-    import libxmp
-    from libxmp import XMPFiles, XMPMeta  # For XMP tags
+    # Skip XMP library on Windows due to Exempi dependency issues
+    if platform.system() == "Windows":
+        libxmp = None
+    else:
+        import libxmp
+        from libxmp import XMPFiles, XMPMeta  # For XMP tags
 except ImportError:
     libxmp = None
 
