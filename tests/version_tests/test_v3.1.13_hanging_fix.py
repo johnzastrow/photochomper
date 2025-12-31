@@ -112,7 +112,7 @@ def test_metadata_structure():
         return False
     
     print(f"  ✓ All {len(required_fields)} required fields present")
-    print(f"  ✓ Metadata structure is compatible")
+    print("  ✓ Metadata structure is compatible")
     
     return True
 
@@ -194,7 +194,7 @@ def test_timeout_logic():
     elapsed = time.time() - start_time
     
     if metadata.get('file_type') == 'ERROR':
-        print(f"  ✗ Unexpected error for existing file")
+        print("  ✗ Unexpected error for existing file")
         return False
     
     if elapsed > 0.1:
@@ -208,11 +208,11 @@ def test_timeout_logic():
     metadata = mock_extract_metadata_with_timeout(fake_file)
     
     if metadata.get('file_type') != 'ERROR':
-        print(f"  ✗ Expected ERROR file_type for non-existent file")
+        print("  ✗ Expected ERROR file_type for non-existent file")
         return False
     
-    print(f"  ✓ Non-existent file handled correctly")
-    print(f"  ✓ Timeout logic working as expected")
+    print("  ✓ Non-existent file handled correctly")
+    print("  ✓ Timeout logic working as expected")
     
     return True
 
@@ -244,7 +244,7 @@ def test_performance_characteristics():
     elapsed = time.time() - start_time
     
     if processed_count == 0:
-        print(f"  ⚠ No files could be processed")
+        print("  ⚠ No files could be processed")
         return True  # Not a failure of our fix
     
     avg_time = elapsed / processed_count
@@ -256,7 +256,7 @@ def test_performance_characteristics():
     if avg_time > 0.01:
         print(f"  ⚠ Warning: Average time {avg_time:.4f}s higher than expected")
     
-    print(f"  ✓ Performance characteristics are good")
+    print("  ✓ Performance characteristics are good")
     
     return True
 
@@ -281,10 +281,10 @@ def main():
         print(f"Running: {test_name}")
         try:
             if test_func():
-                print(f"  ✓ PASSED\n")
+                print("  ✓ PASSED\n")
                 passed += 1
             else:
-                print(f"  ✗ FAILED\n")
+                print("  ✗ FAILED\n")
         except Exception as e:
             print(f"  ✗ ERROR: {e}\n")
     

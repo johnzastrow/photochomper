@@ -10,16 +10,12 @@ hanging on the problematic file that was causing indefinite hangs.
 import os
 import sys
 import time
-import threading
-import tempfile
-from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 # Add the src directory to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from src.scanner import extract_exif_with_timeout, get_image_metadata
-from src.config import log_action
+from src.scanner import extract_exif_with_timeout
 
 
 def test_exif_timeout_protection():

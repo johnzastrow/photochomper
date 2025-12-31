@@ -55,10 +55,10 @@ def test_metadata_extraction():
             
             # Check that we got basic metadata
             if not metadata.get('name') or not metadata.get('path'):
-                print(f"  ✗ Missing basic metadata")
+                print("  ✗ Missing basic metadata")
                 all_passed = False
             else:
-                print(f"  ✓ Metadata extraction successful")
+                print("  ✓ Metadata extraction successful")
                 
         except Exception as e:
             elapsed = time.time() - start_time

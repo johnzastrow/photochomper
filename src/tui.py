@@ -1,5 +1,4 @@
 import os
-import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -9,15 +8,10 @@ from rich.progress import (
     SpinnerColumn,
     TextColumn,
     BarColumn,
-    TimeElapsedColumn,
     TimeRemainingColumn,
-    MofNCompleteColumn,
-    TaskProgressColumn,
 )
 from rich.table import Table
-from rich.panel import Panel
-from rich.text import Text
-from src.config import save_config, log_action, save_list_config, load_list_config
+from src.config import save_config, log_action
 from src.config import (
     DEFAULT_FILE_TYPES,
     DEFAULT_FILE_TYPES_HELP,
@@ -30,14 +24,10 @@ from src.scanner import (
 )
 from src.report import export_report
 from src.actions import (
-    ActionExecutor,
     FileAction,
-    ActionBatch,
     ActionType,
     create_delete_actions,
-    create_move_actions,
 )
-from src.lister import run_comprehensive_listing
 
 console = Console()
 
@@ -93,7 +83,7 @@ def tui_setup():
     dirs = [d.strip() for d in dirs.split(",")] if dirs else default_dirs
 
     # File types
-    console.print(f"\n[bold cyan]📄 File Types[/bold cyan]")
+    console.print("\n[bold cyan]📄 File Types[/bold cyan]")
     # Show the full list in the prompt
     types = console.input(
         f"File types to include (comma separated)\n[dim]{DEFAULT_FILE_TYPES_HELP}[/dim]\n> "
@@ -101,9 +91,9 @@ def tui_setup():
     types = [t.strip() for t in types.split(",")] if types else default_types
 
     # Exclude directories
-    console.print(f"\n[bold cyan]🚫 Exclude Directories[/bold cyan]")
+    console.print("\n[bold cyan]🚫 Exclude Directories[/bold cyan]")
     exclude_dirs = console.input(
-        f"Directories to exclude (comma separated)\n[dim]Default: none[/dim]\n> "
+        "Directories to exclude (comma separated)\n[dim]Default: none[/dim]\n> "
     ).strip()
     exclude_dirs = (
         [e.strip() for e in exclude_dirs.split(",")]
@@ -112,14 +102,14 @@ def tui_setup():
     )
 
     # Similarity threshold
-    console.print(f"\n[bold cyan]🎯 Detection Sensitivity[/bold cyan]")
+    console.print("\n[bold cyan]🎯 Detection Sensitivity[/bold cyan]")
     similarity = console.input(
         f"Similarity threshold (0.0 = identical, 1.0 = completely different)\n[dim]Default: {default_similarity} (recommended for most images)[/dim]\n> "
     ).strip()
     similarity = float(similarity) if similarity else default_similarity
 
     # Hash algorithm selection (SHA256 is always calculated)
-    console.print(f"\n[bold cyan]🔍 Similarity Detection Algorithm[/bold cyan]")
+    console.print("\n[bold cyan]🔍 Similarity Detection Algorithm[/bold cyan]")
     console.print(
         "Choose how to identify similar files (SHA256 is always calculated for exact duplicates):"
     )
@@ -148,7 +138,7 @@ def tui_setup():
     )
 
     # SHA256 skip option
-    console.print(f"\n[bold cyan]⚡ Performance Optimization[/bold cyan]")
+    console.print("\n[bold cyan]⚡ Performance Optimization[/bold cyan]")
     console.print("PhotoChomper uses a two-stage process:")
     console.print(
         "  1. Fast SHA256 hashing for exact duplicates (30-70% of duplicates)"
@@ -173,7 +163,7 @@ def tui_setup():
         )
 
     # Quality ranking option
-    console.print(f"\n[bold cyan]📊 Quality Analysis[/bold cyan]")
+    console.print("\n[bold cyan]📊 Quality Analysis[/bold cyan]")
     quality_default_display = "yes" if default_quality_ranking else "no"
     quality_input = (
         console.input(
@@ -187,14 +177,14 @@ def tui_setup():
     )
 
     # Threading options
-    console.print(f"\n[bold cyan]⚡ Performance Settings[/bold cyan]")
+    console.print("\n[bold cyan]⚡ Performance Settings[/bold cyan]")
     workers = console.input(
         f"Number of worker threads\n[dim]Default: {default_max_workers} (adjust based on CPU cores)[/dim]\n> "
     ).strip()
     max_workers = int(workers) if workers.isdigit() else default_max_workers
 
     # Memory optimization options with enhanced recommendations
-    console.print(f"\n[bold cyan]💾 Memory Optimization[/bold cyan]")
+    console.print("\n[bold cyan]💾 Memory Optimization[/bold cyan]")
     console.print(
         "PhotoChomper automatically optimizes memory usage based on your system"
     )
@@ -248,7 +238,7 @@ def tui_setup():
         )
 
     # File preferences
-    console.print(f"\n[bold cyan]📋 Master File Selection[/bold cyan]")
+    console.print("\n[bold cyan]📋 Master File Selection[/bold cyan]")
     console.print("When duplicates are found, which original should be kept?")
 
     path_pref = (
@@ -275,7 +265,7 @@ def tui_setup():
         filename_pref = default_filename_pref
 
     # Move directory for duplicates
-    console.print(f"\n[bold cyan]📂 Duplicate Management[/bold cyan]")
+    console.print("\n[bold cyan]📂 Duplicate Management[/bold cyan]")
     console.print("Directory to move duplicates when using --review 'move' option")
     move_dir = console.input(
         f"Move duplicates to directory\n[dim]Default: {default_move_dir}[/dim]\n> "
@@ -283,7 +273,7 @@ def tui_setup():
     move_dir = move_dir if move_dir else default_move_dir
 
     # Configuration file
-    console.print(f"\n[bold cyan]💾 Configuration File[/bold cyan]")
+    console.print("\n[bold cyan]💾 Configuration File[/bold cyan]")
     default_config_dir = os.getcwd()
     config_dir = console.input(
         f"Directory to save config file\n[dim]Default: {default_config_dir}[/dim]\n> "
@@ -303,7 +293,7 @@ def tui_setup():
     config_path = os.path.join(config_dir, config_name)
 
     # Output files
-    console.print(f"\n[bold cyan]📄 Report Files[/bold cyan]")
+    console.print("\n[bold cyan]📄 Report Files[/bold cyan]")
     default_output_dir = os.getcwd()
     output_dir = console.input(
         f"Directory to save report files\n[dim]Default: {default_output_dir}[/dim]\n> "
@@ -365,7 +355,7 @@ def tui_setup():
     console.print(f"[bold green]Configuration saved to {config_path}.[/bold green]")
 
     # Summary file
-    console.print(f"\n[bold cyan]📋 Summary File[/bold cyan]")
+    console.print("\n[bold cyan]📋 Summary File[/bold cyan]")
     default_summary_file = os.path.join(output_dir, "duplicates_summary.md")
     summary_file = console.input(
         f"Summary markdown file name\n[dim]Default: {default_summary_file}[/dim]\n> "
@@ -381,17 +371,17 @@ def tui_setup():
     save_config(config, config_path)
 
     # Final confirmation
-    console.print(f"\n[bold green]✅ Configuration Complete![/bold green]")
+    console.print("\n[bold green]✅ Configuration Complete![/bold green]")
     console.print(f"📁 Config saved to: [cyan]{config_path}[/cyan]")
     console.print(f"📂 Duplicate move directory: [cyan]{move_dir}[/cyan]")
     console.print(f"📄 Reports will be saved to: [cyan]{output_dir}[/cyan]")
-    console.print(f"\n[dim]Next steps:[/dim]")
-    console.print(f"[dim]• Run 'python main.py --search' to find duplicates[/dim]")
+    console.print("\n[dim]Next steps:[/dim]")
+    console.print("[dim]• Run 'python main.py --search' to find duplicates[/dim]")
     console.print(
-        f"[dim]• Run 'python main.py --review' for interactive management[/dim]"
+        "[dim]• Run 'python main.py --review' for interactive management[/dim]"
     )
     console.print(
-        f"[dim]• Run 'python main.py --summary' to generate markdown reports[/dim]"
+        "[dim]• Run 'python main.py --summary' to generate markdown reports[/dim]"
     )
 
 
@@ -496,7 +486,7 @@ def run_search(config: dict, config_path: str = None):
         exec_time = time.time() - start_time
 
         # Final summary
-        console.print(f"[bold green]🎉 Search Completed![/bold green]")
+        console.print("[bold green]🎉 Search Completed![/bold green]")
         console.print(
             f"[bold yellow]📊 Results: {len(dupes)} duplicate groups found[/bold yellow]"
         )
@@ -721,7 +711,7 @@ def display_duplicate_group(
                 created_display = f"[green]{created}[/green]"
                 resolution_display = f"[green]{resolution}[/green]"
                 sha256_display = f"[green]{sha256_hash}[/green]"
-                similarity_display = f"[green]MASTER[/green]"
+                similarity_display = "[green]MASTER[/green]"
             else:
                 row_display = f"{i + 1}"
                 status = f"[dim]#{i} DUPLICATE[/dim]"
@@ -743,7 +733,7 @@ def display_duplicate_group(
                 similarity_display,
             )
 
-        except Exception as e:
+        except Exception:
             filename = Path(file_path).name
             table.add_row(
                 f"[red]{i + 1}[/red]",
@@ -759,11 +749,11 @@ def display_duplicate_group(
     console.print(table)
 
     # Add explanatory footer for the group
-    console.print(f"\n[dim]📋 Group Summary:[/dim]")
-    console.print(f"[dim]• Master file (👑) will be kept by default[/dim]")
+    console.print("\n[dim]📋 Group Summary:[/dim]")
+    console.print("[dim]• Master file (👑) will be kept by default[/dim]")
     console.print(f"[dim]• {len(group) - 1} duplicate(s) available for action[/dim]")
     console.print(
-        f"[dim]• Choose 'd' to delete duplicates, 'm' to move them, or 'k' to select different master[/dim]"
+        "[dim]• Choose 'd' to delete duplicates, 'm' to move them, or 'k' to select different master[/dim]"
     )
 
 
@@ -854,7 +844,7 @@ def interactive_duplicate_review(
 
             elif action == "a":
                 # Enable auto mode
-                console.print(f"[yellow]🤖 AUTO Mode - Automatic Processing:[/yellow]")
+                console.print("[yellow]🤖 AUTO Mode - Automatic Processing:[/yellow]")
                 console.print(
                     "Choose a strategy to automatically process all remaining groups:"
                 )
@@ -876,7 +866,7 @@ def interactive_duplicate_review(
 
                 strategy = (
                     console.input(
-                        f"\n[bold]Auto strategy [first/last/largest/smallest]: [/bold]"
+                        "\n[bold]Auto strategy [first/last/largest/smallest]: [/bold]"
                     )
                     .strip()
                     .lower()
@@ -907,7 +897,7 @@ def interactive_duplicate_review(
 
             elif action == "k":
                 # Keep specific file - show selection
-                console.print(f"[yellow]📋 KEEP Action - Choose Master File:[/yellow]")
+                console.print("[yellow]📋 KEEP Action - Choose Master File:[/yellow]")
                 console.print("Select which file to keep (others will be deleted):")
 
                 for i, file_path in enumerate(group):
@@ -949,7 +939,7 @@ def interactive_duplicate_review(
 
                         confirm = (
                             console.input(
-                                f"\n[bold]Confirm this selection? (y/n): [/bold]"
+                                "\n[bold]Confirm this selection? (y/n): [/bold]"
                             )
                             .strip()
                             .lower()
@@ -991,7 +981,7 @@ def interactive_duplicate_review(
                     console.print("[dim]Delete action cancelled[/dim]")
                     continue
 
-                console.print(f"[yellow]📋 DELETE Action Preview:[/yellow]")
+                console.print("[yellow]📋 DELETE Action Preview:[/yellow]")
                 console.print(
                     f"[red]🗑️  DELETE: {len(selected_files)} selected file(s)[/red]"
                 )
@@ -1034,7 +1024,7 @@ def interactive_duplicate_review(
                     console.print("[dim]Move action cancelled[/dim]")
                     continue
 
-                console.print(f"[yellow]📋 MOVE Action Preview:[/yellow]")
+                console.print("[yellow]📋 MOVE Action Preview:[/yellow]")
                 console.print(
                     f"[blue]📦 MOVE: {len(selected_files)} selected file(s) to review folder[/blue]"
                 )
@@ -1056,7 +1046,7 @@ def interactive_duplicate_review(
                 else:
                     # Ask user for directory
                     move_dir = console.input(
-                        f"Directory to move selected files to: "
+                        "Directory to move selected files to: "
                     ).strip()
                     if move_dir:
                         remembered_move_dir = move_dir  # Remember this choice
@@ -1087,7 +1077,7 @@ def interactive_duplicate_review(
 
     # Final action confirmation
     if selected_actions:
-        console.print(f"\n[bold green]✅ Actions Queued:[/bold green]")
+        console.print("\n[bold green]✅ Actions Queued:[/bold green]")
         for action in selected_actions:
             console.print(f"  • {action.action_type.name} - {action.source_path}")
     else:

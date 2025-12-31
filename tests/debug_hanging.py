@@ -27,7 +27,7 @@ def test_file_access(filepath):
         print(f"  - File type: {Path(filepath).suffix}")
         
         # Test file opening
-        print(f"  - Opening file for reading...")
+        print("  - Opening file for reading...")
         with open(filepath, 'rb') as f:
             # Read first 1024 bytes
             data = f.read(1024)
@@ -124,7 +124,7 @@ def main():
             
         except TimeoutError:
             print(f"  HANGING FILE FOUND: {filepath}")
-            print(f"  This file causes a timeout and is likely the source of the hanging issue!")
+            print("  This file causes a timeout and is likely the source of the hanging issue!")
             return filepath
             
         except Exception as e:

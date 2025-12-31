@@ -2,15 +2,14 @@ import csv
 import json
 import os
 import sqlite3
-import threading
 import time
 from datetime import datetime
 from pathlib import Path
 from collections import defaultdict
-from typing import List, Dict, Any
+from typing import List, Dict
 import pandas as pd
 from src.config import load_config, log_action
-from src.scanner import get_image_metadata, sha256_file, rank_duplicates, HashAlgorithm
+from src.scanner import sha256_file, rank_duplicates, HashAlgorithm
 
 
 class MetadataTimeoutError(Exception):
@@ -116,10 +115,10 @@ def export_report(
                     continue
                     
                 log_action(f"Master file selected: {master}")
-                log_action(f"About to extract metadata for master file...")
+                log_action("About to extract metadata for master file...")
                 
                 start_time = time.time()
-                log_action(f"Starting metadata extraction with 20s timeout...")
+                log_action("Starting metadata extraction with 20s timeout...")
                 master_meta = extract_metadata_with_timeout(master, timeout_seconds=20)
                 extraction_time = time.time() - start_time
                 

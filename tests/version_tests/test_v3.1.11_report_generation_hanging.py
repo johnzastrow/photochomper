@@ -11,11 +11,8 @@ components that could cause blocking during report generation.
 import os
 import sys
 import time
-import signal
 import threading
 import tempfile
-from pathlib import Path
-from typing import Dict, Any, Optional
 from contextlib import contextmanager
 
 # Add project root to path for imports
@@ -213,7 +210,7 @@ def test_individual_metadata_operations():
                     "created": os.path.getctime(test_file),
                     "modified": os.path.getmtime(test_file)
                 }
-                print(f"✅ File stats extraction completed")
+                print("✅ File stats extraction completed")
                 results["file_stats"] = True
         except Exception as e:
             print(f"❌ File stats extraction failed: {e}")
@@ -236,7 +233,7 @@ def test_individual_metadata_operations():
                 with Image.open(test_file) as img:
                     if hasattr(img, "_getexif"):
                         exif = img._getexif()
-                print(f"✅ EXIF data extraction completed")
+                print("✅ EXIF data extraction completed")
                 results["exif_data"] = True
         except Exception as e:
             print(f"❌ EXIF data extraction failed: {e}")
@@ -246,7 +243,7 @@ def test_individual_metadata_operations():
             import iptcinfo3
             with timeout_context(10):
                 info = iptcinfo3.IPTCInfo(test_file)
-            print(f"✅ IPTC data extraction completed")
+            print("✅ IPTC data extraction completed")
             results["iptc_data"] = True
         except ImportError:
             print("ℹ️  IPTC library not available - skipping test")
@@ -261,7 +258,7 @@ def test_individual_metadata_operations():
                 xmpfile = XMPFiles(file_path=test_file)
                 xmp = xmpfile.get_xmp()
                 xmpfile.close_file()
-            print(f"✅ XMP data extraction completed")
+            print("✅ XMP data extraction completed")
             results["xmp_data"] = True
         except ImportError:
             print("ℹ️  XMP library not available - skipping test")
